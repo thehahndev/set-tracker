@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft, Plus, X } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { createTemplate } from "@/lib/actions/templates"
 import { ExercisePicker } from "@/app/(app)/workout/active/ExercisePicker"
@@ -16,7 +17,6 @@ export default function NewTemplatePage() {
   const [exercises, setExercises] = useState<SelectedExercise[]>([])
   const [showPicker, setShowPicker] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   function handleSelect(id: string, exerciseName: string) {
     if (!exercises.find((e) => e.id === id)) {
@@ -28,13 +28,12 @@ export default function NewTemplatePage() {
   async function handleSubmit() {
     if (!name.trim() || exercises.length === 0) return
     setSubmitting(true)
-    setError(null)
     const result = await createTemplate({
       name: name.trim(),
       exerciseIds: exercises.map((e) => e.id),
     })
     if (result.error) {
-      setError(result.error)
+      toast.error(result.error)
       setSubmitting(false)
       return
     }
@@ -91,8 +90,6 @@ export default function NewTemplatePage() {
             Add Exercise
           </Button>
         </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <Button
           className="w-full"

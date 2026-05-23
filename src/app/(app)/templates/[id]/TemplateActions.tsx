@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { createWorkoutSession } from "@/lib/actions/workout"
 import { deleteTemplate } from "@/lib/actions/templates"
@@ -10,14 +11,12 @@ export function TemplateActions({ templateId }: { templateId: string }) {
   const router = useRouter()
   const [starting, setStarting] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function handleStart() {
     setStarting(true)
-    setError(null)
     const result = await createWorkoutSession(templateId)
     if (result.error || !result.data) {
-      setError(result.error ?? "Failed to start workout")
+      toast.error(result.error ?? "Failed to start workout")
       setStarting(false)
       return
     }
@@ -34,7 +33,6 @@ export function TemplateActions({ templateId }: { templateId: string }) {
 
   return (
     <div className="space-y-3">
-      {error && <p className="text-sm text-destructive">{error}</p>}
       <Button className="w-full" size="lg" onClick={handleStart} disabled={starting}>
         {starting ? "Starting…" : "Start Workout"}
       </Button>

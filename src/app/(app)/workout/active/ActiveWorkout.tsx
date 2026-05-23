@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -134,6 +135,7 @@ export function ActiveWorkout({
             : ex
         )
       )
+      toast.error("Failed to log set — please try again")
       return
     }
 

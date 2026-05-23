@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { createExercise } from "@/lib/actions/exercises"
 
@@ -12,17 +13,15 @@ export default function NewExercisePage() {
   const [name, setName] = useState("")
   const [category, setCategory] = useState("")
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    setError(null)
 
     const result = await createExercise({ name: name.trim(), category: category || null })
 
     if (result.error) {
-      setError(result.error)
+      toast.error(result.error)
       setLoading(false)
       return
     }
@@ -71,7 +70,6 @@ export default function NewExercisePage() {
             ))}
           </select>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Saving…" : "Save Exercise"}
         </Button>
