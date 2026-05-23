@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { getWorkoutSession, getExerciseHistory, type HistorySet } from "@/lib/actions/workout"
+import { getWorkoutSession, getExerciseHistory, type HistorySession } from "@/lib/actions/workout"
 import { ActiveWorkout } from "./ActiveWorkout"
 
 interface Props {
@@ -18,12 +18,12 @@ export default async function ActiveWorkoutPage({ searchParams }: Props) {
   const historyEntries = await Promise.all(
     exerciseIds.map(async (id) => {
       const { data } = await getExerciseHistory(id)
-      return [id, data] as [string, HistorySet[] | null]
+      return [id, data] as [string, HistorySession[] | null]
     })
   )
   const exerciseHistory = Object.fromEntries(
-    historyEntries.filter(([, sets]) => sets !== null)
-  ) as Record<string, HistorySet[]>
+    historyEntries.filter(([, sessions]) => sessions !== null)
+  ) as Record<string, HistorySession[]>
 
   return <ActiveWorkout session={session} exerciseHistory={exerciseHistory} />
 }

@@ -267,18 +267,19 @@ export type SessionDetail = {
 }
 
 export type HistorySet = { set_number: number; weight_kg: number | null; reps: number }
+export type HistorySession = { finished_at: string; sets: HistorySet[] }
 
 export async function getExerciseHistory(
   exerciseId: string
-): Promise<{ data: HistorySet[] | null }> {
+): Promise<{ data: HistorySession[] | null }> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { data: null }
 
-  // RLS ensures we only see the current user's sessions.
   // !inner join with the finished_at filter excludes the active session (finished_at IS NULL).
+  // Returns up to 3 most recent finished sessions, newest first.
   const { data } = await supabase
     .from("session_exercises")
     .select(
@@ -288,13 +289,19 @@ export async function getExerciseHistory(
     .eq("exercise_id", exerciseId)
     .not("workout_sessions.finished_at", "is", null)
     .order("finished_at", { referencedTable: "workout_sessions", ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .limit(3)
 
-  if (!data) return { data: null }
+  if (!data || data.length === 0) return { data: null }
 
-  const sets = (data.set_entries as unknown as HistorySet[]).sort((a, b) => a.set_number - b.set_number)
-  return { data: sets.length > 0 ? sets : null }
+  type RawRow = { set_entries: HistorySet[]; workout_sessions: { finished_at: string } }
+  const sessions: HistorySession[] = (data as unknown as RawRow[])
+    .map((row) => ({
+      finished_at: row.workout_sessions.finished_at,
+      sets: [...row.set_entries].sort((a, b) => a.set_number - b.set_number),
+    }))
+    .filter((s) => s.sets.length > 0)
+
+  return { data: sessions.length > 0 ? sessions : null }
 }
 
 export async function getWorkoutHistory(): Promise<{
