@@ -4,6 +4,49 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
+export type WorkoutSession = {
+  id: string
+  started_at: string
+  session_exercises: Array<{
+    id: string
+    exercise_id: string
+    display_order: number
+    exercises: { name: string } | null
+    set_entries: Array<{
+      id: string
+      set_number: number
+      weight_kg: number | null
+      reps: number
+    }>
+  }>
+}
+
+export async function getWorkoutSession(sessionId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select(
+      `id, started_at,
+       session_exercises (
+         id, exercise_id, display_order,
+         exercises (name),
+         set_entries (id, set_number, weight_kg, reps)
+       )`
+    )
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .is("finished_at", null)
+    .single()
+
+  if (error) return { error: error.message }
+  return { data: data as unknown as WorkoutSession }
+}
+
 export async function getActiveSession() {
   const supabase = await createClient()
   const {
