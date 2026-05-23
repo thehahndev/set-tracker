@@ -10,6 +10,7 @@ jobs:
   migrate:
     name: Push migrations to production
     runs-on: ubuntu-latest
+    if: ${{ secrets.SUPABASE_PROD_DB_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
