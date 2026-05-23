@@ -203,6 +203,25 @@ export async function finishWorkout(sessionId: string, templateName?: string) {
   return { data: true }
 }
 
+export async function cancelWorkout(sessionId: string) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  const { error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .is("finished_at", null)
+
+  if (error) return { error: error.message }
+  revalidatePath("/dashboard")
+  return { data: true }
+}
+
 export async function addExerciseToSession(
   sessionId: string,
   exerciseId: string,

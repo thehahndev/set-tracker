@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   addSet,
+  cancelWorkout,
   deleteSet,
   addExerciseToSession,
   removeExerciseFromSession,
@@ -66,8 +67,10 @@ export function ActiveWorkout({
   const [elapsed, setElapsed] = useState(0)
   const [showPicker, setShowPicker] = useState(false)
   const [showFinish, setShowFinish] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [templateName, setTemplateName] = useState("")
   const [finishing, setFinishing] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     const start = new Date(session.started_at).getTime()
@@ -205,11 +208,20 @@ export function ActiveWorkout({
     setShowPicker(false)
   }
 
+  const totalSets = exercises.reduce((acc, ex) => acc + ex.set_entries.length, 0)
+
   async function handleFinish() {
     setFinishing(true)
     await finishWorkout(session.id, templateName || undefined)
     localStorage.removeItem("activeSessionId")
     router.push("/history")
+  }
+
+  async function handleCancel() {
+    setCancelling(true)
+    await cancelWorkout(session.id)
+    localStorage.removeItem("activeSessionId")
+    router.push("/dashboard")
   }
 
   return (
@@ -374,33 +386,87 @@ export function ActiveWorkout({
 
       {showFinish && (
         <div className="fixed inset-0 z-[60] flex items-end bg-background/80 backdrop-blur-sm">
-          <div className="w-full space-y-4 rounded-t-xl border-t bg-background p-6">
-            <h2 className="text-lg font-semibold">Finish Workout?</h2>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                Save as template{" "}
-                <span className="font-normal text-muted-foreground">(optional)</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Push Day A"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setShowFinish(false)}
-              >
-                Cancel
-              </Button>
-              <Button className="flex-1" onClick={handleFinish} disabled={finishing}>
-                {finishing ? "Saving…" : "Finish"}
-              </Button>
-            </div>
+          <div className="w-full rounded-t-xl border-t bg-background p-6">
+            {showCancelConfirm ? (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Cancel this workout?</h2>
+                  {totalSets > 0 && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      This will permanently delete your session and {totalSets} logged{" "}
+                      {totalSets === 1 ? "set" : "sets"}.
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setShowCancelConfirm(false)}
+                  >
+                    Keep Going
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                  >
+                    {cancelling ? "Cancelling…" : "Yes, Cancel"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Finish Workout?</h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {exercises.length} {exercises.length === 1 ? "exercise" : "exercises"} ·{" "}
+                    {totalSets} {totalSets === 1 ? "set" : "sets"}
+                  </p>
+                </div>
+                {totalSets === 0 && (
+                  <p className="text-sm text-destructive">
+                    Log at least one set before finishing.
+                  </p>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">
+                    Save as template{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Push Day A"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => { setShowFinish(false); setShowCancelConfirm(false) }}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={handleFinish}
+                    disabled={finishing || totalSets === 0}
+                  >
+                    {finishing ? "Saving…" : "Finish"}
+                  </Button>
+                </div>
+                <button
+                  onClick={() => setShowCancelConfirm(true)}
+                  className="w-full pt-1 text-center text-sm text-destructive/80 hover:text-destructive"
+                >
+                  Cancel Workout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
