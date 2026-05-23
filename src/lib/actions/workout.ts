@@ -239,3 +239,34 @@ export async function removeExerciseFromSession(sessionExerciseId: string) {
   if (error) return { error: error.message }
   return { data: true }
 }
+
+export type HistorySet = { set_number: number; weight_kg: number | null; reps: number }
+
+export async function getExerciseHistory(
+  exerciseId: string
+): Promise<{ data: HistorySet[] | null }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null }
+
+  // RLS ensures we only see the current user's sessions.
+  // !inner join with the finished_at filter excludes the active session (finished_at IS NULL).
+  const { data } = await supabase
+    .from("session_exercises")
+    .select(
+      `set_entries (set_number, weight_kg, reps),
+       workout_sessions!inner (finished_at)`
+    )
+    .eq("exercise_id", exerciseId)
+    .not("workout_sessions.finished_at", "is", null)
+    .order("finished_at", { referencedTable: "workout_sessions", ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return { data: null }
+
+  const sets = (data.set_entries as unknown as HistorySet[]).sort((a, b) => a.set_number - b.set_number)
+  return { data: sets.length > 0 ? sets : null }
+}

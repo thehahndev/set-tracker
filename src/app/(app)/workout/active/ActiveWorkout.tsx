@@ -10,7 +10,9 @@ import {
   addExerciseToSession,
   removeExerciseFromSession,
   finishWorkout,
+  getExerciseHistory,
   type WorkoutSession,
+  type HistorySet,
 } from "@/lib/actions/workout"
 import { ExercisePicker } from "./ExercisePicker"
 
@@ -24,12 +26,19 @@ function formatTime(seconds: number) {
   return `${m}:${s}`
 }
 
-export function ActiveWorkout({ session }: { session: WorkoutSession }) {
+export function ActiveWorkout({
+  session,
+  exerciseHistory,
+}: {
+  session: WorkoutSession
+  exerciseHistory: Record<string, HistorySet[]>
+}) {
   const router = useRouter()
   const [exercises, setExercises] = useState<SessionExercise[]>(
     [...session.session_exercises].sort((a, b) => a.display_order - b.display_order)
   )
   const [setInputs, setSetInputs] = useState<Record<string, { weight: string; reps: string }>>({})
+  const [history, setHistory] = useState<Record<string, HistorySet[]>>(exerciseHistory)
   const [elapsed, setElapsed] = useState(0)
   const [showPicker, setShowPicker] = useState(false)
   const [showFinish, setShowFinish] = useState(false)
@@ -95,7 +104,10 @@ export function ActiveWorkout({ session }: { session: WorkoutSession }) {
 
   async function handleAddExercise(exerciseId: string, exerciseName: string) {
     const displayOrder = (exercises[exercises.length - 1]?.display_order ?? 0) + 1
-    const result = await addExerciseToSession(session.id, exerciseId, displayOrder)
+    const [result, historyResult] = await Promise.all([
+      addExerciseToSession(session.id, exerciseId, displayOrder),
+      getExerciseHistory(exerciseId),
+    ])
     if (result.error || !result.data) return
 
     setExercises((prev) => [
@@ -108,6 +120,9 @@ export function ActiveWorkout({ session }: { session: WorkoutSession }) {
         set_entries: [],
       },
     ])
+    if (historyResult.data) {
+      setHistory((prev) => ({ ...prev, [exerciseId]: historyResult.data! }))
+    }
     setShowPicker(false)
   }
 
@@ -138,7 +153,9 @@ export function ActiveWorkout({ session }: { session: WorkoutSession }) {
           </p>
         )}
 
-        {exercises.map((exercise) => (
+        {exercises.map((exercise) => {
+          const prevSets = history[exercise.exercise_id]
+          return (
           <div key={exercise.id} className="space-y-2">
             <div className="flex items-center justify-between">
               <h2 className="font-medium">{exercise.exercises?.name ?? "Unknown"}</h2>
@@ -149,6 +166,17 @@ export function ActiveWorkout({ session }: { session: WorkoutSession }) {
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            {prevSets && prevSets.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <span className="font-medium">Last session:</span>
+                {prevSets.map((s) => (
+                  <span key={s.set_number} className="rounded bg-muted px-1.5 py-0.5 tabular-nums">
+                    {s.weight_kg != null ? `${s.weight_kg}kg` : "BW"}&nbsp;×&nbsp;{s.reps}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {exercise.set_entries.length > 0 && (
               <div className="divide-y rounded-md border text-sm">
@@ -208,7 +236,8 @@ export function ActiveWorkout({ session }: { session: WorkoutSession }) {
               </Button>
             </div>
           </div>
-        ))}
+          )
+        })}
 
         <Button variant="outline" className="w-full" onClick={() => setShowPicker(true)}>
           <Plus className="h-4 w-4" />
