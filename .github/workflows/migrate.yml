@@ -10,7 +10,6 @@ jobs:
   migrate:
     name: Push migrations to production
     runs-on: ubuntu-latest
-    if: ${{ secrets.SUPABASE_PROD_DB_URL != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -19,4 +18,11 @@ jobs:
           version: latest
 
       - name: Push migrations to production
-        run: supabase db push --db-url "${{ secrets.SUPABASE_PROD_DB_URL }}"
+        env:
+          SUPABASE_PROD_DB_URL: ${{ secrets.SUPABASE_PROD_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_PROD_DB_URL" ]; then
+            echo "SUPABASE_PROD_DB_URL secret not set — skipping migration."
+            exit 0
+          fi
+          supabase db push --db-url "$SUPABASE_PROD_DB_URL"
