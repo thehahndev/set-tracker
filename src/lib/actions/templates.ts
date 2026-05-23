@@ -4,10 +4,75 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
+export type TemplateSummary = {
+  id: string
+  name: string
+  created_at: string
+  workout_template_exercises: Array<{ id: string }>
+}
+
+export type TemplateDetail = {
+  id: string
+  name: string
+  workout_template_exercises: Array<{
+    id: string
+    display_order: number
+    exercise_id: string
+    exercises: { name: string } | null
+  }>
+}
+
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(100),
   exerciseIds: z.array(z.string().uuid()).min(1),
 })
+
+export async function getTemplates(): Promise<{
+  data: TemplateSummary[] | null
+  error?: string
+}> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: "Unauthorized" }
+
+  const { data, error } = await supabase
+    .from("workout_templates")
+    .select(`id, name, created_at, workout_template_exercises(id)`)
+    .eq("user_id", user.id)
+    .order("updated_at", { ascending: false })
+
+  if (error) return { data: null, error: error.message }
+  return { data: data as unknown as TemplateSummary[] }
+}
+
+export async function getTemplateDetail(templateId: string): Promise<{
+  data: TemplateDetail | null
+  error?: string
+}> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: "Unauthorized" }
+
+  const { data, error } = await supabase
+    .from("workout_templates")
+    .select(
+      `id, name,
+       workout_template_exercises (
+         id, display_order, exercise_id,
+         exercises (name)
+       )`
+    )
+    .eq("id", templateId)
+    .eq("user_id", user.id)
+    .single()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data as unknown as TemplateDetail }
+}
 
 export async function createTemplate(input: z.infer<typeof createTemplateSchema>) {
   const supabase = await createClient()

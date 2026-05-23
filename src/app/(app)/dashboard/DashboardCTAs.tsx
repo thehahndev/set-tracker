@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { createWorkoutSession } from "@/lib/actions/workout"
 
 interface Props {
@@ -41,9 +43,17 @@ export function DashboardCTAs({ activeSessionId }: Props) {
           Continue Workout
         </Button>
       ) : (
-        <Button className="w-full" size="lg" onClick={startWorkout} disabled={loading}>
-          {loading ? "Starting…" : "Start Workout"}
-        </Button>
+        <>
+          <Button className="w-full" size="lg" onClick={startWorkout} disabled={loading}>
+            {loading ? "Starting…" : "Start Workout"}
+          </Button>
+          <Link
+            href="/templates"
+            className={cn(buttonVariants({ variant: "outline", size: "lg" }), "w-full")}
+          >
+            Start from Template
+          </Link>
+        </>
       )}
       {error && <p className="text-center text-sm text-destructive">{error}</p>}
     </div>
