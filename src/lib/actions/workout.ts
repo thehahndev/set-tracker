@@ -240,6 +240,32 @@ export async function removeExerciseFromSession(sessionExerciseId: string) {
   return { data: true }
 }
 
+export type HistorySummary = {
+  id: string
+  started_at: string
+  finished_at: string
+  session_exercises: Array<{
+    id: string
+    set_entries: Array<{ id: string }>
+  }>
+}
+
+export type SessionDetail = {
+  id: string
+  started_at: string
+  finished_at: string
+  session_exercises: Array<{
+    id: string
+    display_order: number
+    exercises: { name: string } | null
+    set_entries: Array<{
+      set_number: number
+      weight_kg: number | null
+      reps: number
+    }>
+  }>
+}
+
 export type HistorySet = { set_number: number; weight_kg: number | null; reps: number }
 
 export async function getExerciseHistory(
@@ -269,4 +295,60 @@ export async function getExerciseHistory(
 
   const sets = (data.set_entries as unknown as HistorySet[]).sort((a, b) => a.set_number - b.set_number)
   return { data: sets.length > 0 ? sets : null }
+}
+
+export async function getWorkoutHistory(): Promise<{
+  data: HistorySummary[] | null
+  error?: string
+}> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: "Unauthorized" }
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select(
+      `id, started_at, finished_at,
+       session_exercises (
+         id,
+         set_entries (id)
+       )`
+    )
+    .eq("user_id", user.id)
+    .not("finished_at", "is", null)
+    .order("finished_at", { ascending: false })
+
+  if (error) return { data: null, error: error.message }
+  return { data: data as unknown as HistorySummary[] }
+}
+
+export async function getSessionDetail(sessionId: string): Promise<{
+  data: SessionDetail | null
+  error?: string
+}> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: "Unauthorized" }
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select(
+      `id, started_at, finished_at,
+       session_exercises (
+         id, display_order,
+         exercises (name),
+         set_entries (set_number, weight_kg, reps)
+       )`
+    )
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .not("finished_at", "is", null)
+    .single()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data as unknown as SessionDetail }
 }
