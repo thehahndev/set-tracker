@@ -1,3 +1,5 @@
+import { LoginForm } from "./LoginForm"
+
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -8,10 +10,7 @@ export default function LoginPage() {
             Enter your email to receive a sign-in link
           </p>
         </div>
-        {/* LoginForm client component will go here in Phase 6 */}
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-          Auth form — Phase 6
-        </div>
+        <LoginForm />
       </div>
     </div>
   )
