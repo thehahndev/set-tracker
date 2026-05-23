@@ -11,8 +11,6 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "Set Tracker",
   description: "Simple workout tracking for the gym",
-  manifest: "/manifest.json",
-  themeColor: "#000000",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
