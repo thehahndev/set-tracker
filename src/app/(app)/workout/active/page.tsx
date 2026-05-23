@@ -1,4 +1,18 @@
-export default function ActiveWorkoutPage() {
+interface Props {
+  searchParams: Promise<{ session?: string }>
+}
+
+export default async function ActiveWorkoutPage({ searchParams }: Props) {
+  const { session: sessionId } = await searchParams
+
+  if (!sessionId) {
+    return (
+      <div className="px-4 py-6">
+        <p className="text-sm text-muted-foreground">No active session.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="px-4 py-4 space-y-4">
       <div className="flex items-center justify-between">

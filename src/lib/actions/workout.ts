@@ -4,6 +4,26 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
+export async function getActiveSession() {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null }
+
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("id, started_at")
+    .eq("user_id", user.id)
+    .is("finished_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) return { data: null }
+  return { data }
+}
+
 export async function createWorkoutSession(templateId?: string) {
   const supabase = await createClient()
   const {
