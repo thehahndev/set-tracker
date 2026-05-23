@@ -117,7 +117,7 @@ export function ActiveWorkout({
           : ex
       )
     )
-    setSetInputs((prev) => ({ ...prev, [exercise.id]: { weight: input.weight, reps: "" } }))
+    setSetInputs((prev) => ({ ...prev, [exercise.id]: { weight: input.weight, reps: input.reps } }))
 
     const result = await addSet({
       sessionExerciseId: exercise.id,
