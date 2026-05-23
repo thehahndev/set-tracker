@@ -221,7 +221,7 @@ export function ActiveWorkout({ session }: { session: WorkoutSession }) {
       )}
 
       {showFinish && (
-        <div className="fixed inset-0 z-50 flex items-end bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-end bg-background/80 backdrop-blur-sm">
           <div className="w-full space-y-4 rounded-t-xl border-t bg-background p-6">
             <h2 className="text-lg font-semibold">Finish Workout?</h2>
             <div className="space-y-1.5">
