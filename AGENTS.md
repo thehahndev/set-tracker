@@ -62,16 +62,16 @@ Supabase SSR auth with cookie-based sessions. Magic link OTP only — no passwor
 
 ### Server actions
 All mutations are Next.js Server Actions (`"use server"`) in `src/lib/actions/`:
-- `workout.ts` — session CRUD, set logging, exercise add/remove, finish/cancel
-- `templates.ts` — template CRUD
-- `exercises.ts` — exercise library management
+- `workout.ts` — `getActiveSession`, `getWorkoutSession`, `createWorkoutSession`, `addSet`, `deleteSet`, `finishWorkout`, `cancelWorkout`, `addExerciseToSession`, `removeExerciseFromSession`, `getRecentWorkouts`, `getWorkoutHistory`, `getSessionDetail`, `getExerciseHistory`, `getTemplateNameById`
+- `templates.ts` — template CRUD (`getTemplates`, `getTemplateDetail`, `createTemplate`, `deleteTemplate`)
+- `exercises.ts` — `getExercises` (with optional search filter), `createExercise`
 
 Actions call `supabase.auth.getUser()` for auth, use Zod for input validation, and call `revalidatePath()` after mutations.
 
 ### Data model (Supabase tables)
 - `profiles` — user display name (auto-created on signup via trigger)
 - `exercises` — global exercise library (seeded with 60+ exercises across 8 categories)
-- `workout_sessions` — active and completed workout sessions
+- `workout_sessions` — active and completed workout sessions; `source_template_id` (nullable FK → `workout_templates`) tracks which template started the session
 - `session_exercises` — ordered exercises within a session (`display_order`)
 - `set_entries` — individual sets (`weight_kg`, `reps`, `set_number`)
 - `workout_templates` — user-saved reusable templates
@@ -80,10 +80,11 @@ Actions call `supabase.auth.getUser()` for auth, use Zod for input validation, a
 All tables have Row-Level Security enabled.
 
 ### Active workout flow
-1. Dashboard creates a session via `createWorkoutSession()` → stores ID in `localStorage` as `activeSessionId`
-2. `/workout/active?session=<id>` — SSR page fetches session, passes to `ActiveWorkout.tsx` (client component)
-3. `ActiveWorkout.tsx` handles timer, set logging (optimistic), exercise add/remove, history display
-4. Finish → `finishWorkout()` (optionally saves template); Cancel → `cancelWorkout()`
+1. Dashboard calls `createWorkoutSession()` (or `TemplateActions.tsx` calls it when starting from a template) → navigates to `/workout/active?session=<id>` and writes the ID to `localStorage` as `activeSessionId` (side-write only — navigation is via URL param, not localStorage)
+2. The dashboard's "Continue Workout" button is driven by `getActiveSession()` (server-side DB query), not by reading localStorage
+3. `/workout/active?session=<id>` — SSR page fetches session, passes to `ActiveWorkout.tsx` (client component)
+4. `ActiveWorkout.tsx` handles timer, set logging (optimistic), exercise add/remove, history display
+5. Finish → `finishWorkout()` (optionally saves template); Cancel → `cancelWorkout()` — both remove `activeSessionId` from localStorage
 
 ### Commands
 ```bash
@@ -97,5 +98,5 @@ No test suite exists.
 ### CI / Deployment
 - **Vercel** — production and preview deployments are automatic on push/PR
 - **CI** (`.github/workflows/ci.yml`) — runs typecheck + lint + build on every PR
-- **Migrations** (`.github/workflows/migrate.yml`) — automatically runs `supabase db push` against production when any file under `supabase/migrations/` is pushed to `main`
-- **Env vars**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (client + server); `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` (server/CI only). See `.env.example`.
+- **Migrations** (`.github/workflows/migrate.yml`) — automatically runs `supabase db push` against both dev and prod (two parallel jobs) when any file under `supabase/migrations/` is pushed to `main`; uses GitHub secrets `SUPABASE_DEV_DB_URL` and `SUPABASE_PROD_DB_URL`
+- **Env vars**: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (client + server); `SUPABASE_SERVICE_ROLE_KEY` (server only); `SUPABASE_DB_URL` (local Supabase CLI only — CI uses `SUPABASE_DEV_DB_URL` / `SUPABASE_PROD_DB_URL`). See `.env.example`.
