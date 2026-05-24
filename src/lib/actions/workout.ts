@@ -7,6 +7,8 @@ import { z } from "zod"
 export type WorkoutSession = {
   id: string
   started_at: string
+  source_template_id: string | null
+  source_template: { name: string } | null
   session_exercises: Array<{
     id: string
     exercise_id: string
@@ -31,7 +33,8 @@ export async function getWorkoutSession(sessionId: string) {
   const { data, error } = await supabase
     .from("workout_sessions")
     .select(
-      `id, started_at,
+      `id, started_at, source_template_id,
+       source_template:workout_templates(name),
        session_exercises (
          id, exercise_id, display_order,
          exercises (name),
@@ -76,7 +79,8 @@ export async function createWorkoutSession(templateId?: string) {
 
   const { data: session, error } = await supabase
     .from("workout_sessions")
-    .insert({ user_id: user.id })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert({ user_id: user.id, source_template_id: templateId ?? null } as any)
     .select("id")
     .single()
 

@@ -583,6 +583,15 @@ export function ActiveWorkout({
                     Log at least one set before finishing.
                   </p>
                 )}
+                {session.source_template && (
+                  <p className="text-sm text-muted-foreground">
+                    Started from{" "}
+                    <span className="font-medium text-foreground">
+                      {session.source_template.name}
+                    </span>
+                    {" "}— only save as a new template if you've made changes.
+                  </p>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">
                     Save as template{" "}
