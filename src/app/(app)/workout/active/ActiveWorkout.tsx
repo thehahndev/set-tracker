@@ -109,16 +109,12 @@ export function ActiveWorkout({
   }
 
   function toggleCollapse(sessionExerciseId: string) {
-    const expanding = collapsedExercises.has(sessionExerciseId)
     setCollapsedExercises((prev) => {
       const next = new Set(prev)
       if (next.has(sessionExerciseId)) next.delete(sessionExerciseId)
       else next.add(sessionExerciseId)
       return next
     })
-    if (expanding) {
-      setTimeout(() => weightInputRefs.current.get(sessionExerciseId)?.focus(), 0)
-    }
   }
 
   async function handleAddSet(exercise: SessionExercise) {
@@ -188,7 +184,6 @@ export function ActiveWorkout({
       )
     )
 
-    weightInputRefs.current.get(exercise.id)?.focus()
   }
 
   function handleDeleteSet(exerciseId: string, setId: string) {
