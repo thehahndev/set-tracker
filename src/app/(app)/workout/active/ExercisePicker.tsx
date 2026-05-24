@@ -14,10 +14,12 @@ interface Props {
 export function ExercisePicker({ onSelect, onClose }: Props) {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [search, setSearch] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     getExercises().then(({ data }) => {
       if (data) setExercises(data)
+      setLoading(false)
     })
   }, [])
 
@@ -29,7 +31,10 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h2 className="font-semibold">Add Exercise</h2>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button
+          onClick={onClose}
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-muted-foreground hover:text-foreground"
+        >
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -47,14 +52,23 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
         </div>
       </div>
       <div className="flex-1 divide-y overflow-y-auto">
-        {filtered.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="animate-pulse px-4 py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-32 rounded bg-muted" />
+                <div className="h-3 w-16 rounded bg-muted" />
+              </div>
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">No exercises found</p>
         ) : (
           filtered.map((exercise) => (
             <button
               key={exercise.id}
               onClick={() => onSelect(exercise.id, exercise.name)}
-              className="w-full px-4 py-3 text-left text-sm hover:bg-muted"
+              className="flex min-h-[44px] w-full items-center px-4 py-3 text-left text-sm hover:bg-muted"
             >
               <span className="font-medium">{exercise.name}</span>
               {exercise.category && (

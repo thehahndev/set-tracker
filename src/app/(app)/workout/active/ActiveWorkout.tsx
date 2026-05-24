@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
@@ -37,8 +37,8 @@ function buildInitialInputs(
 ) {
   const inputs: Record<string, { weight: string; reps: string }> = {}
   for (const ex of exercises) {
-    const sessions = history[ex.exercise_id]
-    const lastSet = sessions?.[0]?.sets.at(-1)
+    const lastSet =
+      ex.set_entries.at(-1) ?? history[ex.exercise_id]?.[0]?.sets.at(-1)
     if (!lastSet) continue
     inputs[ex.id] = {
       weight: lastSet.weight_kg != null ? String(lastSet.weight_kg) : "",
@@ -46,6 +46,10 @@ function buildInitialInputs(
     }
   }
   return inputs
+}
+
+function formatSetSummary(set: { weight_kg: number | null; reps: number }) {
+  return set.weight_kg != null ? `${set.weight_kg}kg×${set.reps}` : `BW×${set.reps}`
 }
 
 export function ActiveWorkout({
@@ -64,6 +68,13 @@ export function ActiveWorkout({
   )
   const [history, setHistory] = useState<Record<string, HistorySession[]>>(exerciseHistory)
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set())
+  // Exercises with ≥1 logged set start collapsed; newly-added exercises start expanded
+  const [collapsedExercises, setCollapsedExercises] = useState<Set<string>>(
+    () => new Set(session.session_exercises.filter((ex) => ex.set_entries.length > 0).map((ex) => ex.id))
+  )
+  const [loggingSet, setLoggingSet] = useState<Set<string>>(new Set())
+  const weightInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
+  const repsInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
   const [elapsed, setElapsed] = useState(0)
   const [showPicker, setShowPicker] = useState(false)
   const [showFinish, setShowFinish] = useState(false)
@@ -97,6 +108,19 @@ export function ActiveWorkout({
     })
   }
 
+  function toggleCollapse(sessionExerciseId: string) {
+    const expanding = collapsedExercises.has(sessionExerciseId)
+    setCollapsedExercises((prev) => {
+      const next = new Set(prev)
+      if (next.has(sessionExerciseId)) next.delete(sessionExerciseId)
+      else next.add(sessionExerciseId)
+      return next
+    })
+    if (expanding) {
+      setTimeout(() => weightInputRefs.current.get(sessionExerciseId)?.focus(), 0)
+    }
+  }
+
   async function handleAddSet(exercise: SessionExercise) {
     const input = getInput(exercise.id)
     const reps = parseInt(input.reps)
@@ -122,12 +146,23 @@ export function ActiveWorkout({
       )
     )
     setSetInputs((prev) => ({ ...prev, [exercise.id]: { weight: input.weight, reps: input.reps } }))
+    setLoggingSet((prev) => {
+      const next = new Set(prev)
+      next.add(exercise.id)
+      return next
+    })
 
     const result = await addSet({
       sessionExerciseId: exercise.id,
       setNumber,
       weightKg,
       reps,
+    })
+
+    setLoggingSet((prev) => {
+      const next = new Set(prev)
+      next.delete(exercise.id)
+      return next
     })
 
     if (result.error || !result.data) {
@@ -152,38 +187,113 @@ export function ActiveWorkout({
           : ex
       )
     )
+
+    weightInputRefs.current.get(exercise.id)?.focus()
   }
 
-  async function handleDeleteSet(exerciseId: string, setId: string) {
+  function handleDeleteSet(exerciseId: string, setId: string) {
     if (setId.startsWith("pending-")) return
-    await deleteSet(setId)
+
+    let removedSet: SessionExercise["set_entries"][number] | undefined
+    let removedIndex = -1
     setExercises((prev) =>
-      prev.map((ex) =>
-        ex.id === exerciseId
-          ? { ...ex, set_entries: ex.set_entries.filter((s) => s.id !== setId) }
-          : ex
-      )
+      prev.map((ex) => {
+        if (ex.id !== exerciseId) return ex
+        const idx = ex.set_entries.findIndex((s) => s.id === setId)
+        if (idx === -1) return ex
+        removedSet = ex.set_entries[idx]
+        removedIndex = idx
+        return { ...ex, set_entries: ex.set_entries.filter((s) => s.id !== setId) }
+      })
     )
+    if (!removedSet) return
+
+    const restore = () => {
+      const setToRestore = removedSet!
+      const idx = removedIndex
+      setExercises((prev) =>
+        prev.map((ex) => {
+          if (ex.id !== exerciseId) return ex
+          const nextSets = [...ex.set_entries]
+          nextSets.splice(idx, 0, setToRestore)
+          return { ...ex, set_entries: nextSets }
+        })
+      )
+    }
+
+    let undone = false
+    toast("Set deleted", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true
+          restore()
+        },
+      },
+    })
+
+    ;(async () => {
+      const result = await deleteSet(setId)
+      if (undone) return
+      if (result?.error) {
+        restore()
+        toast.error("Couldn't delete set")
+      }
+    })()
   }
 
-  async function handleRemoveExercise(sessionExerciseId: string) {
-    await removeExerciseFromSession(sessionExerciseId)
-    setExercises((prev) => prev.filter((ex) => ex.id !== sessionExerciseId))
+  function handleRemoveExercise(sessionExerciseId: string) {
+    let removedExercise: SessionExercise | undefined
+    let removedIndex = -1
+    setExercises((prev) => {
+      const idx = prev.findIndex((ex) => ex.id === sessionExerciseId)
+      if (idx === -1) return prev
+      removedExercise = prev[idx]
+      removedIndex = idx
+      return prev.filter((ex) => ex.id !== sessionExerciseId)
+    })
+    if (!removedExercise) return
+
+    const restore = () => {
+      const exToRestore = removedExercise!
+      const idx = removedIndex
+      setExercises((prev) => {
+        const next = [...prev]
+        next.splice(idx, 0, exToRestore)
+        return next
+      })
+    }
+
+    let undone = false
+    toast("Exercise removed", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true
+          restore()
+        },
+      },
+    })
+
+    ;(async () => {
+      const result = await removeExerciseFromSession(sessionExerciseId)
+      if (undone) return
+      if (result?.error) {
+        restore()
+        toast.error("Couldn't remove exercise")
+      }
+    })()
   }
 
-  async function handleAddExercise(exerciseId: string, exerciseName: string) {
+  function handleAddExercise(exerciseId: string, exerciseName: string) {
+    setShowPicker(false)
     const displayOrder = (exercises[exercises.length - 1]?.display_order ?? 0) + 1
-    const [result, historyResult] = await Promise.all([
-      addExerciseToSession(session.id, exerciseId, displayOrder),
-      getExerciseHistory(exerciseId),
-    ])
-    if (result.error || !result.data) return
+    const tempId = `pending-ex-${Date.now()}`
 
-    const newSessionExerciseId = result.data!.id
     setExercises((prev) => [
       ...prev,
       {
-        id: newSessionExerciseId,
+        id: tempId,
         exercise_id: exerciseId,
         display_order: displayOrder,
         exercises: { name: exerciseName },
@@ -191,21 +301,37 @@ export function ActiveWorkout({
       },
     ])
 
-    if (historyResult.data) {
-      setHistory((prev) => ({ ...prev, [exerciseId]: historyResult.data! }))
-      const lastSet = historyResult.data[0]?.sets.at(-1)
-      if (lastSet) {
-        setSetInputs((prev) => ({
-          ...prev,
-          [newSessionExerciseId]: {
-            weight: lastSet.weight_kg != null ? String(lastSet.weight_kg) : "",
-            reps: String(lastSet.reps),
-          },
-        }))
-      }
-    }
+    ;(async () => {
+      const [result, historyResult] = await Promise.all([
+        addExerciseToSession(session.id, exerciseId, displayOrder),
+        getExerciseHistory(exerciseId),
+      ])
 
-    setShowPicker(false)
+      if (result.error || !result.data) {
+        setExercises((prev) => prev.filter((ex) => ex.id !== tempId))
+        toast.error("Couldn't add exercise")
+        return
+      }
+
+      const newSessionExerciseId = result.data.id
+      setExercises((prev) =>
+        prev.map((ex) => (ex.id === tempId ? { ...ex, id: newSessionExerciseId } : ex))
+      )
+
+      if (historyResult.data) {
+        setHistory((prev) => ({ ...prev, [exerciseId]: historyResult.data! }))
+        const lastSet = historyResult.data[0]?.sets.at(-1)
+        if (lastSet) {
+          setSetInputs((prev) => ({
+            ...prev,
+            [newSessionExerciseId]: {
+              weight: lastSet.weight_kg != null ? String(lastSet.weight_kg) : "",
+              reps: String(lastSet.reps),
+            },
+          }))
+        }
+      }
+    })()
   }
 
   const totalSets = exercises.reduce((acc, ex) => acc + ex.set_entries.length, 0)
@@ -229,28 +355,53 @@ export function ActiveWorkout({
       <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-4 py-3">
         <span className="tabular-nums text-sm text-muted-foreground">{formatTime(elapsed)}</span>
         <h1 className="text-base font-semibold">Workout</h1>
-        <button
-          onClick={() => setShowFinish(true)}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-end text-sm font-medium text-primary"
-        >
+        <Button variant="ghost" size="sm" onClick={() => setShowFinish(true)}>
           Finish
-        </button>
+        </Button>
       </div>
 
-      <div className="space-y-6 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 pb-20">
         {exercises.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No exercises yet — add one below.
+            Tap Add Exercise to get started.
           </p>
         )}
 
         {exercises.map((exercise) => {
+          const isCollapsed = collapsedExercises.has(exercise.id)
           const sessions = history[exercise.exercise_id]
-          const isExpanded = expandedHistory.has(exercise.exercise_id)
+          const isHistExpanded = expandedHistory.has(exercise.exercise_id)
+          const setCount = exercise.set_entries.length
+          const lastSet = exercise.set_entries.at(-1)
+          const lastSetSummary = lastSet ? formatSetSummary(lastSet) : null
+
+          const isPendingExercise = exercise.id.startsWith("pending-ex-")
+
           return (
-            <div key={exercise.id} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium">{exercise.exercises?.name ?? "Unknown"}</h2>
+            <div
+              key={exercise.id}
+              className={cn("space-y-2", isPendingExercise && "opacity-60")}
+            >
+              {/* Card header — always visible */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => toggleCollapse(exercise.id)}
+                  className="flex min-h-[44px] flex-1 items-center gap-2 text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-medium">{exercise.exercises?.name ?? "Unknown"}</h2>
+                    {isCollapsed && setCount > 0 && lastSetSummary && (
+                      <p className="text-xs text-muted-foreground">
+                        {setCount} {setCount === 1 ? "set" : "sets"} · {lastSetSummary}
+                      </p>
+                    )}
+                  </div>
+                  {isCollapsed ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                </button>
                 <button
                   onClick={() => handleRemoveExercise(exercise.id)}
                   className="flex min-h-[44px] min-w-[44px] items-center justify-center text-muted-foreground hover:text-destructive"
@@ -259,121 +410,128 @@ export function ActiveWorkout({
                 </button>
               </div>
 
-              {sessions?.length ? (
-                <div>
-                  <button
-                    onClick={() => toggleHistory(exercise.exercise_id)}
-                    className="flex min-h-[44px] items-center gap-1 text-xs text-muted-foreground"
-                  >
-                    {isExpanded ? (
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    )}
-                    <span className="font-medium">
-                      {isExpanded ? "History" : "Last session"}
-                    </span>
-                    {!isExpanded && (
-                      <span className="ml-1 text-muted-foreground/70">
-                        {sessions[0].sets
-                          .map((s) =>
-                            s.weight_kg != null ? `${s.weight_kg}kg×${s.reps}` : `BW×${s.reps}`
-                          )
-                          .join(", ")}
-                      </span>
-                    )}
-                  </button>
-                  {isExpanded && (
-                    <div className="space-y-2 pb-1">
-                      {sessions.map((s, i) => (
-                        <div key={i}>
-                          <p className="mb-1 text-xs font-medium text-muted-foreground">
-                            {i === 0 ? "Last session" : formatShortDate(s.finished_at)}
-                          </p>
-                          <div className="flex flex-wrap gap-x-2 gap-y-1">
-                            {s.sets.map((set) => (
-                              <span
-                                key={set.set_number}
-                                className="rounded bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
-                              >
-                                {set.weight_kg != null ? `${set.weight_kg}kg` : "BW"}&nbsp;×&nbsp;{set.reps}
-                              </span>
-                            ))}
-                          </div>
+              {/* Expanded content */}
+              {!isCollapsed && (
+                <>
+                  {sessions?.length ? (
+                    <div>
+                      <button
+                        onClick={() => toggleHistory(exercise.exercise_id)}
+                        className="flex min-h-[44px] items-center gap-1 text-xs text-muted-foreground"
+                      >
+                        {isHistExpanded ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                        <span className="font-medium">
+                          {isHistExpanded ? "History" : "Last session"}
+                        </span>
+                        {!isHistExpanded && (
+                          <span className="ml-1 text-muted-foreground/70">
+                            {sessions[0].sets.map((s) => formatSetSummary(s)).join(", ")}
+                          </span>
+                        )}
+                      </button>
+                      {isHistExpanded && (
+                        <div className="space-y-2 pb-1">
+                          {sessions.map((s, i) => (
+                            <div key={i}>
+                              <p className="mb-1 text-xs font-medium text-muted-foreground">
+                                {i === 0 ? "Last session" : formatShortDate(s.finished_at)}
+                              </p>
+                              <div className="flex flex-wrap gap-x-2 gap-y-1">
+                                {s.sets.map((set) => (
+                                  <span
+                                    key={set.set_number}
+                                    className="rounded bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
+                                  >
+                                    {set.weight_kg != null ? `${set.weight_kg}kg` : "BW"}&nbsp;×&nbsp;{set.reps}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {exercise.set_entries.length > 0 && (
+                    <div className="divide-y rounded-md border text-sm">
+                      <div className="grid grid-cols-[2rem_1fr_1fr_2.75rem] gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+                        <span>Set</span>
+                        <span>Weight</span>
+                        <span>Reps</span>
+                        <span />
+                      </div>
+                      {exercise.set_entries.map((set) => (
+                        <div
+                          key={set.id}
+                          className={cn(
+                            "grid grid-cols-[2rem_1fr_1fr_2.75rem] items-center gap-2 px-3 py-2",
+                            set.id.startsWith("pending-") && "opacity-60"
+                          )}
+                        >
+                          <span className="text-muted-foreground">{set.set_number}</span>
+                          <span>{set.weight_kg != null ? `${set.weight_kg} kg` : "—"}</span>
+                          <span>{set.reps}</span>
+                          <button
+                            onClick={() => handleDeleteSet(exercise.id, set.id)}
+                            disabled={set.id.startsWith("pending-")}
+                            className="flex min-h-[44px] w-full items-center justify-center text-muted-foreground hover:text-destructive disabled:pointer-events-none"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
-              ) : null}
 
-              {exercise.set_entries.length > 0 && (
-                <div className="divide-y rounded-md border text-sm">
-                  <div className="grid grid-cols-[2rem_1fr_1fr_2.75rem] gap-2 px-3 py-1.5 text-xs text-muted-foreground">
-                    <span>Set</span>
-                    <span>Weight</span>
-                    <span>Reps</span>
-                    <span />
-                  </div>
-                  {exercise.set_entries.map((set) => (
-                    <div
-                      key={set.id}
-                      className={cn(
-                        "grid grid-cols-[2rem_1fr_1fr_2.75rem] items-center gap-2 px-3 py-2",
-                        set.id.startsWith("pending-") && "opacity-60"
-                      )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={(el) => { weightInputRefs.current.set(exercise.id, el) }}
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="next"
+                      placeholder="kg"
+                      value={getInput(exercise.id).weight}
+                      onChange={(e) => updateInput(exercise.id, "weight", e.target.value)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onKeyDown={(e) => e.key === "Enter" && repsInputRefs.current.get(exercise.id)?.focus()}
+                      className="w-20 rounded-md border border-input bg-background px-2 py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <input
+                      ref={(el) => { repsInputRefs.current.set(exercise.id, el) }}
+                      type="text"
+                      inputMode="numeric"
+                      enterKeyHint="done"
+                      placeholder="reps"
+                      value={getInput(exercise.id).reps}
+                      onChange={(e) => updateInput(exercise.id, "reps", e.target.value)}
+                      onFocus={(e) => e.currentTarget.select()}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddSet(exercise)}
+                      className="w-20 rounded-md border border-input bg-background px-2 py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAddSet(exercise)}
+                      disabled={!getInput(exercise.id).reps || loggingSet.has(exercise.id)}
                     >
-                      <span className="text-muted-foreground">{set.set_number}</span>
-                      <span>{set.weight_kg != null ? `${set.weight_kg} kg` : "—"}</span>
-                      <span>{set.reps}</span>
-                      <button
-                        onClick={() => handleDeleteSet(exercise.id, set.id)}
-                        disabled={set.id.startsWith("pending-")}
-                        className="flex min-h-[44px] w-full items-center justify-center text-muted-foreground hover:text-destructive disabled:pointer-events-none"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                      <Plus className="h-4 w-4" />
+                      Log
+                    </Button>
+                  </div>
+                </>
               )}
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  placeholder="kg"
-                  min="0"
-                  step="0.5"
-                  value={getInput(exercise.id).weight}
-                  onChange={(e) => updateInput(exercise.id, "weight", e.target.value)}
-                  className="w-20 rounded-md border border-input bg-background px-2 py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="reps"
-                  min="1"
-                  step="1"
-                  value={getInput(exercise.id).reps}
-                  onChange={(e) => updateInput(exercise.id, "reps", e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAddSet(exercise)}
-                  className="w-20 rounded-md border border-input bg-background px-2 py-1.5 text-center text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleAddSet(exercise)}
-                  disabled={!getInput(exercise.id).reps}
-                >
-                  <Plus className="h-4 w-4" />
-                  Log
-                </Button>
-              </div>
             </div>
           )
         })}
+      </div>
 
+      {/* Fixed bottom action bar — sits above the fixed bottom nav (h-16 = bottom-16) */}
+      <div className="fixed bottom-16 left-0 right-0 z-[51] border-t bg-background px-4 py-3">
         <Button variant="outline" className="w-full" onClick={() => setShowPicker(true)}>
           <Plus className="h-4 w-4" />
           Add Exercise

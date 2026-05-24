@@ -1,5 +1,5 @@
-// Validates required environment variables at startup.
-// Will throw at build time if missing, surfacing config errors early.
+// Validates required environment variables on first access.
+// Lazy getters defer evaluation until runtime, after NEXT_PUBLIC_* vars are inlined by the bundler.
 
 function requireEnv(name: string): string {
   const value = process.env[name]
@@ -10,8 +10,10 @@ function requireEnv(name: string): string {
 }
 
 export const config = {
-  supabase: {
-    url: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+  get supabase() {
+    return {
+      url: requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+      anonKey: requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    }
   },
 }
