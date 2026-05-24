@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { ChevronLeft } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { createExercise } from "@/lib/actions/exercises"
@@ -31,14 +33,15 @@ export default function NewExercisePage() {
 
   return (
     <div className="px-4 py-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.back()}
-          className="text-muted-foreground hover:text-foreground"
+      <div>
+        <Link
+          href="/exercises"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground -ml-1"
         >
-          ←
-        </button>
-        <h1 className="text-xl font-semibold">New Exercise</h1>
+          <ChevronLeft className="h-4 w-4" />
+          Exercises
+        </Link>
+        <h1 className="mt-1 text-xl font-semibold">New Exercise</h1>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
