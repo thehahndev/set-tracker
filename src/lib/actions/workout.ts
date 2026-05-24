@@ -335,17 +335,20 @@ export async function getExerciseHistory(
   return { data: sessions.length > 0 ? sessions : null }
 }
 
-export async function getWorkoutHistory(): Promise<{
+const HISTORY_PAGE_SIZE = 15
+
+export async function getWorkoutHistory(cursor?: string): Promise<{
   data: HistorySummary[] | null
+  nextCursor: string | null
   error?: string
 }> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return { data: null, error: "Unauthorized" }
+  if (!user) return { data: null, nextCursor: null, error: "Unauthorized" }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("workout_sessions")
     .select(
       `id, started_at, finished_at,
@@ -357,9 +360,19 @@ export async function getWorkoutHistory(): Promise<{
     .eq("user_id", user.id)
     .not("finished_at", "is", null)
     .order("finished_at", { ascending: false })
+    .limit(HISTORY_PAGE_SIZE + 1)
 
-  if (error) return { data: null, error: error.message }
-  return { data: data as unknown as HistorySummary[] }
+  if (cursor) query = query.lt("finished_at", cursor)
+
+  const { data, error } = await query
+  if (error) return { data: null, nextCursor: null, error: error.message }
+
+  const rows = data as unknown as HistorySummary[]
+  const hasMore = rows.length > HISTORY_PAGE_SIZE
+  const page = hasMore ? rows.slice(0, HISTORY_PAGE_SIZE) : rows
+  const nextCursor = hasMore ? page[page.length - 1].finished_at : null
+
+  return { data: page, nextCursor }
 }
 
 export async function getSessionDetail(sessionId: string): Promise<{
