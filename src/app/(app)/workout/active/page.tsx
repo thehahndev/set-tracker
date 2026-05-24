@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { getWorkoutSession, getExerciseHistory, type HistorySession } from "@/lib/actions/workout"
+import { getWorkoutSession, getExerciseHistory, getTemplateNameById, type HistorySession } from "@/lib/actions/workout"
 import { ActiveWorkout } from "./ActiveWorkout"
 
 interface Props {
@@ -15,15 +15,25 @@ export default async function ActiveWorkoutPage({ searchParams }: Props) {
   if (error || !session) redirect("/dashboard")
 
   const exerciseIds = session.session_exercises.map((se) => se.exercise_id)
-  const historyEntries = await Promise.all(
-    exerciseIds.map(async (id) => {
+  const [sourceTemplateName, ...historyResults] = await Promise.all([
+    session.source_template_id
+      ? getTemplateNameById(session.source_template_id)
+      : Promise.resolve(null),
+    ...exerciseIds.map(async (id) => {
       const { data } = await getExerciseHistory(id)
       return [id, data] as [string, HistorySession[] | null]
-    })
-  )
+    }),
+  ])
+
   const exerciseHistory = Object.fromEntries(
-    historyEntries.filter(([, sessions]) => sessions !== null)
+    (historyResults as [string, HistorySession[] | null][]).filter(([, sessions]) => sessions !== null)
   ) as Record<string, HistorySession[]>
 
-  return <ActiveWorkout session={session} exerciseHistory={exerciseHistory} />
+  return (
+    <ActiveWorkout
+      session={session}
+      exerciseHistory={exerciseHistory}
+      sourceTemplateName={sourceTemplateName as string | null}
+    />
+  )
 }

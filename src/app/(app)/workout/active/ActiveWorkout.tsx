@@ -55,9 +55,11 @@ function formatSetSummary(set: { weight_kg: number | null; reps: number }) {
 export function ActiveWorkout({
   session,
   exerciseHistory,
+  sourceTemplateName,
 }: {
   session: WorkoutSession
   exerciseHistory: Record<string, HistorySession[]>
+  sourceTemplateName: string | null
 }) {
   const router = useRouter()
   const [exercises, setExercises] = useState<SessionExercise[]>(
@@ -583,11 +585,11 @@ export function ActiveWorkout({
                     Log at least one set before finishing.
                   </p>
                 )}
-                {session.source_template && (
+                {sourceTemplateName && (
                   <p className="text-sm text-muted-foreground">
                     Started from{" "}
                     <span className="font-medium text-foreground">
-                      {session.source_template.name}
+                      {sourceTemplateName}
                     </span>
                     {" "}— only save as a new template if you've made changes.
                   </p>

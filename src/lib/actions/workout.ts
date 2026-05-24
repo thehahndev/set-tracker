@@ -8,7 +8,6 @@ export type WorkoutSession = {
   id: string
   started_at: string
   source_template_id: string | null
-  source_template: { name: string } | null
   session_exercises: Array<{
     id: string
     exercise_id: string
@@ -34,7 +33,6 @@ export async function getWorkoutSession(sessionId: string) {
     .from("workout_sessions")
     .select(
       `id, started_at, source_template_id,
-       source_template:workout_templates(name),
        session_exercises (
          id, exercise_id, display_order,
          exercises (name),
@@ -48,6 +46,16 @@ export async function getWorkoutSession(sessionId: string) {
 
   if (error) return { error: error.message }
   return { data: data as unknown as WorkoutSession }
+}
+
+export async function getTemplateNameById(templateId: string): Promise<string | null> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from("workout_templates")
+    .select("name")
+    .eq("id", templateId)
+    .single()
+  return data?.name ?? null
 }
 
 export async function getActiveSession() {
