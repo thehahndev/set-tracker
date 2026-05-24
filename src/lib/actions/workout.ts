@@ -337,6 +337,51 @@ export async function getExerciseHistory(
 
 const HISTORY_PAGE_SIZE = 15
 
+export type RecentWorkout = {
+  id: string
+  finished_at: string
+  exercise_names: string[]
+}
+
+export async function getRecentWorkouts(): Promise<RecentWorkout[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from("workout_sessions")
+    .select(
+      `id, finished_at,
+       session_exercises (
+         display_order,
+         exercises (name)
+       )`
+    )
+    .eq("user_id", user.id)
+    .not("finished_at", "is", null)
+    .order("finished_at", { ascending: false })
+    .limit(5)
+
+  if (!data) return []
+
+  type RawRow = {
+    id: string
+    finished_at: string
+    session_exercises: Array<{ display_order: number; exercises: { name: string } | null }>
+  }
+
+  return (data as unknown as RawRow[]).map((row) => ({
+    id: row.id,
+    finished_at: row.finished_at,
+    exercise_names: [...row.session_exercises]
+      .sort((a, b) => a.display_order - b.display_order)
+      .map((se) => se.exercises?.name)
+      .filter((n): n is string => !!n),
+  }))
+}
+
 export async function getWorkoutHistory(cursor?: string): Promise<{
   data: HistorySummary[] | null
   nextCursor: string | null
