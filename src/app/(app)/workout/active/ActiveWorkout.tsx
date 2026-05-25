@@ -77,7 +77,6 @@ export function ActiveWorkout({
   const [loggingSet, setLoggingSet] = useState<Set<string>>(new Set())
   const weightInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
   const repsInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map())
-  const removedPendingIds = useRef<Set<string>>(new Set())
   const [elapsed, setElapsed] = useState(0)
   const [showPicker, setShowPicker] = useState(false)
   const [showFinish, setShowFinish] = useState(false)
@@ -243,9 +242,6 @@ export function ActiveWorkout({
   }
 
   function handleRemoveExercise(sessionExerciseId: string) {
-    if (sessionExerciseId.startsWith("pending-ex-")) {
-      removedPendingIds.current.add(sessionExerciseId)
-    }
     let removedExercise: SessionExercise | undefined
     let removedIndex = -1
     setExercises((prev) => {
@@ -311,16 +307,6 @@ export function ActiveWorkout({
         addExerciseToSession(session.id, exerciseId),
         getExerciseHistory(exerciseId),
       ])
-
-      // User removed this exercise while it was pending — honour their intent silently
-      if (removedPendingIds.current.has(tempId)) {
-        removedPendingIds.current.delete(tempId)
-        if (!result.error && result.data) {
-          // Add succeeded before the removal; clean up the row that was created
-          await removeExerciseFromSession(result.data.id)
-        }
-        return
-      }
 
       if (result.error || !result.data) {
         setExercises((prev) => prev.filter((ex) => ex.id !== tempId))
@@ -432,7 +418,8 @@ export function ActiveWorkout({
                 </button>
                 <button
                   onClick={() => handleRemoveExercise(exercise.id)}
-                  className="flex min-h-[44px] min-w-[44px] items-center justify-center text-muted-foreground hover:text-destructive"
+                  disabled={isPendingExercise}
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center text-muted-foreground hover:text-destructive disabled:pointer-events-none"
                 >
                   <X className="h-4 w-4" />
                 </button>
