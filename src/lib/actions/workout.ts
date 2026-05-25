@@ -262,16 +262,25 @@ export async function cancelWorkout(sessionId: string) {
   return { data: true }
 }
 
-export async function addExerciseToSession(
-  sessionId: string,
-  exerciseId: string,
-  displayOrder: number
-) {
+export async function addExerciseToSession(sessionId: string, exerciseId: string) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
+
+  // Compute display_order from the DB rather than trusting the client — orphan rows
+  // left behind by aborted in-flight adds (e.g. user refresh) would otherwise collide
+  // with the client's count and trigger the UNIQUE (session_id, display_order) constraint.
+  const { data: maxRow } = await supabase
+    .from("session_exercises")
+    .select("display_order")
+    .eq("session_id", sessionId)
+    .order("display_order", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const displayOrder = (maxRow?.display_order ?? 0) + 1
 
   const { data, error } = await supabase
     .from("session_exercises")

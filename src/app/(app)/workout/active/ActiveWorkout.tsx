@@ -308,7 +308,7 @@ export function ActiveWorkout({
 
     ;(async () => {
       const [result, historyResult] = await Promise.all([
-        addExerciseToSession(session.id, exerciseId, displayOrder),
+        addExerciseToSession(session.id, exerciseId),
         getExerciseHistory(exerciseId),
       ])
 
@@ -329,8 +329,13 @@ export function ActiveWorkout({
       }
 
       const newSessionExerciseId = result.data.id
+      const serverDisplayOrder = result.data.display_order
       setExercises((prev) =>
-        prev.map((ex) => (ex.id === tempId ? { ...ex, id: newSessionExerciseId } : ex))
+        prev.map((ex) =>
+          ex.id === tempId
+            ? { ...ex, id: newSessionExerciseId, display_order: serverDisplayOrder }
+            : ex
+        )
       )
 
       if (historyResult.data) {
