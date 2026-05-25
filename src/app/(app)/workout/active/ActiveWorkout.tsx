@@ -191,28 +191,26 @@ export function ActiveWorkout({
   function handleDeleteSet(exerciseId: string, setId: string) {
     if (setId.startsWith("pending-")) return
 
-    let removedSet: SessionExercise["set_entries"][number] | undefined
-    let removedIndex = -1
+    const exercise = exercises.find((ex) => ex.id === exerciseId)
+    if (!exercise) return
+    const removedIndex = exercise.set_entries.findIndex((s) => s.id === setId)
+    if (removedIndex === -1) return
+    const removedSet = exercise.set_entries[removedIndex]
+
     setExercises((prev) =>
-      prev.map((ex) => {
-        if (ex.id !== exerciseId) return ex
-        const idx = ex.set_entries.findIndex((s) => s.id === setId)
-        if (idx === -1) return ex
-        removedSet = ex.set_entries[idx]
-        removedIndex = idx
-        return { ...ex, set_entries: ex.set_entries.filter((s) => s.id !== setId) }
-      })
+      prev.map((ex) =>
+        ex.id === exerciseId
+          ? { ...ex, set_entries: ex.set_entries.filter((s) => s.id !== setId) }
+          : ex
+      )
     )
-    if (!removedSet) return
 
     const restore = () => {
-      const setToRestore = removedSet!
-      const idx = removedIndex
       setExercises((prev) =>
         prev.map((ex) => {
           if (ex.id !== exerciseId) return ex
           const nextSets = [...ex.set_entries]
-          nextSets.splice(idx, 0, setToRestore)
+          nextSets.splice(removedIndex, 0, removedSet)
           return { ...ex, set_entries: nextSets }
         })
       )
@@ -242,23 +240,16 @@ export function ActiveWorkout({
   }
 
   function handleRemoveExercise(sessionExerciseId: string) {
-    let removedExercise: SessionExercise | undefined
-    let removedIndex = -1
-    setExercises((prev) => {
-      const idx = prev.findIndex((ex) => ex.id === sessionExerciseId)
-      if (idx === -1) return prev
-      removedExercise = prev[idx]
-      removedIndex = idx
-      return prev.filter((ex) => ex.id !== sessionExerciseId)
-    })
-    if (!removedExercise) return
+    const removedIndex = exercises.findIndex((ex) => ex.id === sessionExerciseId)
+    if (removedIndex === -1) return
+    const removedExercise = exercises[removedIndex]
+
+    setExercises((prev) => prev.filter((ex) => ex.id !== sessionExerciseId))
 
     const restore = () => {
-      const exToRestore = removedExercise!
-      const idx = removedIndex
       setExercises((prev) => {
         const next = [...prev]
-        next.splice(idx, 0, exToRestore)
+        next.splice(removedIndex, 0, removedExercise)
         return next
       })
     }
