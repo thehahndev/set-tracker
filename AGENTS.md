@@ -88,6 +88,9 @@ All tables have Row-Level Security enabled.
 6. Finish → `finishWorkout()` writes the template **before** setting `finished_at`, so a failed template save leaves the session active and the user can retry; Cancel → `cancelWorkout()` — both remove `activeSessionId` from localStorage
 7. Runtime errors inside the protected `(app)` route group are caught by `src/app/(app)/error.tsx`; `src/app/(app)/workout/active/error.tsx` overrides it with a workout-specific message. Both are Next.js App Router error boundaries (must be Client Components, receive `error` + `reset` props)
 
+### Known deferred issues
+See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) before "fixing" patterns flagged by an audit — several were consciously deferred (e.g. the workout page's parallel per-exercise history fetches look like an N+1 but are intentional at current scale).
+
 ### Commands
 ```bash
 npm run dev      # start dev server

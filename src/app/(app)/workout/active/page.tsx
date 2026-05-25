@@ -15,6 +15,7 @@ export default async function ActiveWorkoutPage({ searchParams }: Props) {
   if (error || !session) redirect("/dashboard")
 
   const exerciseIds = session.session_exercises.map((se) => se.exercise_id)
+  // Per-exercise history fetch is parallelised via Promise.all — see KNOWN_ISSUES.md #2 before collapsing into one RPC.
   const [sourceTemplateName, ...historyResults] = await Promise.all([
     session.source_template_id
       ? getTemplateNameById(session.source_template_id)
