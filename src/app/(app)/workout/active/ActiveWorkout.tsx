@@ -219,24 +219,26 @@ export function ActiveWorkout({
     }
 
     let undone = false
-    toast("Set deleted", {
-      action: {
-        label: "Undo",
-        onClick: () => {
-          undone = true
-          restore()
-        },
-      },
-    })
-
-    ;(async () => {
+    const commit = setTimeout(async () => {
       const result = await deleteSet(setId)
       if (undone) return
       if (result?.error) {
         restore()
         toast.error("Couldn't delete set")
       }
-    })()
+    }, 4000)
+
+    toast("Set deleted", {
+      duration: 4000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true
+          clearTimeout(commit)
+          restore()
+        },
+      },
+    })
   }
 
   function handleRemoveExercise(sessionExerciseId: string) {
@@ -262,24 +264,26 @@ export function ActiveWorkout({
     }
 
     let undone = false
-    toast("Exercise removed", {
-      action: {
-        label: "Undo",
-        onClick: () => {
-          undone = true
-          restore()
-        },
-      },
-    })
-
-    ;(async () => {
+    const commit = setTimeout(async () => {
       const result = await removeExerciseFromSession(sessionExerciseId)
       if (undone) return
       if (result?.error) {
         restore()
         toast.error("Couldn't remove exercise")
       }
-    })()
+    }, 4000)
+
+    toast("Exercise removed", {
+      duration: 4000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true
+          clearTimeout(commit)
+          restore()
+        },
+      },
+    })
   }
 
   function handleAddExercise(exerciseId: string, exerciseName: string) {
@@ -335,7 +339,12 @@ export function ActiveWorkout({
 
   async function handleFinish() {
     setFinishing(true)
-    await finishWorkout(session.id, templateName || undefined)
+    const result = await finishWorkout(session.id, templateName || undefined)
+    if (result?.error) {
+      toast.error(templateName ? "Couldn't save template — workout not finished" : "Couldn't finish workout")
+      setFinishing(false)
+      return
+    }
     localStorage.removeItem("activeSessionId")
     router.push("/history")
   }
@@ -591,7 +600,7 @@ export function ActiveWorkout({
                     <span className="font-medium text-foreground">
                       {sourceTemplateName}
                     </span>
-                    {" "}— only save as a new template if you've made changes.
+                    {" "}— only save as a new template if you&apos;ve made changes.
                   </p>
                 )}
                 <div className="space-y-1.5">

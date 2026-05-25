@@ -176,6 +176,39 @@ export async function finishWorkout(sessionId: string, templateName?: string) {
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
 
+  // Save template first — if it fails, the session stays active so the user can retry
+  if (templateName) {
+    const { data: sessionExercises, error: seErr } = await supabase
+      .from("session_exercises")
+      .select("exercise_id, display_order")
+      .eq("session_id", sessionId)
+      .order("display_order")
+
+    if (seErr) return { error: seErr.message }
+
+    if (sessionExercises && sessionExercises.length > 0) {
+      const { data: template, error: tErr } = await supabase
+        .from("workout_templates")
+        .insert({ user_id: user.id, name: templateName })
+        .select("id")
+        .single()
+
+      if (tErr || !template) return { error: tErr?.message ?? "Failed to save template" }
+
+      const { error: teErr } = await supabase.from("workout_template_exercises").insert(
+        sessionExercises.map((se) => ({
+          template_id: template.id,
+          exercise_id: se.exercise_id,
+          display_order: se.display_order,
+        }))
+      )
+      if (teErr) {
+        await supabase.from("workout_templates").delete().eq("id", template.id)
+        return { error: teErr.message }
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("workout_sessions")
     .update({ finished_at: new Date().toISOString() })
@@ -183,32 +216,6 @@ export async function finishWorkout(sessionId: string, templateName?: string) {
     .eq("user_id", user.id)
 
   if (error) return { error: error.message }
-
-  if (templateName) {
-    const { data: sessionExercises } = await supabase
-      .from("session_exercises")
-      .select("exercise_id, display_order")
-      .eq("session_id", sessionId)
-      .order("display_order")
-
-    if (sessionExercises && sessionExercises.length > 0) {
-      const { data: template } = await supabase
-        .from("workout_templates")
-        .insert({ user_id: user.id, name: templateName })
-        .select("id")
-        .single()
-
-      if (template) {
-        await supabase.from("workout_template_exercises").insert(
-          sessionExercises.map((se) => ({
-            template_id: template.id,
-            exercise_id: se.exercise_id,
-            display_order: se.display_order,
-          }))
-        )
-      }
-    }
-  }
 
   revalidatePath("/dashboard")
   revalidatePath("/history")
