@@ -169,12 +169,33 @@ export async function deleteSet(setId: string) {
   return { data: true }
 }
 
-export async function finishWorkout(sessionId: string, templateName?: string) {
+export async function finishWorkout(
+  sessionId: string,
+  templateName?: string,
+  exerciseIds: string[] = []
+) {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized" }
+
+  // Delete exercises the user removed that are still in the DB inside the deferred-delete window.
+  // This must run before the template snapshot so the snapshot only includes kept exercises.
+  if (exerciseIds.length > 0) {
+    const { error: cleanupErr } = await supabase
+      .from("session_exercises")
+      .delete()
+      .eq("session_id", sessionId)
+      .not("id", "in", `(${exerciseIds.join(",")})`)
+    if (cleanupErr) return { error: cleanupErr.message }
+  } else {
+    const { error: cleanupErr } = await supabase
+      .from("session_exercises")
+      .delete()
+      .eq("session_id", sessionId)
+    if (cleanupErr) return { error: cleanupErr.message }
+  }
 
   // Save template first — if it fails, the session stays active so the user can retry
   if (templateName) {

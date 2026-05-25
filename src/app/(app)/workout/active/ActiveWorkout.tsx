@@ -339,7 +339,10 @@ export function ActiveWorkout({
 
   async function handleFinish() {
     setFinishing(true)
-    const result = await finishWorkout(session.id, templateName || undefined)
+    const confirmedIds = exercises
+      .filter((e) => !e.id.startsWith("pending-"))
+      .map((e) => e.id)
+    const result = await finishWorkout(session.id, templateName || undefined, confirmedIds)
     if (result?.error) {
       toast.error(templateName ? "Couldn't save template — workout not finished" : "Couldn't finish workout")
       setFinishing(false)
