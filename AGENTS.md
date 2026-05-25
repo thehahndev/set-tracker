@@ -84,7 +84,9 @@ All tables have Row-Level Security enabled.
 2. The dashboard's "Continue Workout" button is driven by `getActiveSession()` (server-side DB query), not by reading localStorage
 3. `/workout/active?session=<id>` — SSR page fetches session, passes to `ActiveWorkout.tsx` (client component)
 4. `ActiveWorkout.tsx` handles timer, set logging (optimistic), exercise add/remove, history display
-5. Finish → `finishWorkout()` (optionally saves template); Cancel → `cancelWorkout()` — both remove `activeSessionId` from localStorage
+5. Set-delete and exercise-remove are optimistic with a 4s undo window — the server call is deferred via `setTimeout` and cancelled if the user clicks Undo, so an undo never races a completed server delete
+6. Finish → `finishWorkout()` writes the template **before** setting `finished_at`, so a failed template save leaves the session active and the user can retry; Cancel → `cancelWorkout()` — both remove `activeSessionId` from localStorage
+7. Runtime errors inside the protected `(app)` route group are caught by `src/app/(app)/error.tsx`; `src/app/(app)/workout/active/error.tsx` overrides it with a workout-specific message. Both are Next.js App Router error boundaries (must be Client Components, receive `error` + `reset` props)
 
 ### Commands
 ```bash
