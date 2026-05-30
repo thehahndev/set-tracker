@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Search } from "lucide-react"
+import Link from "next/link"
+import { ChevronRight, Search } from "lucide-react"
 
 type Exercise = { id: string; name: string; category: string | null }
 
@@ -59,9 +60,14 @@ export function ExerciseList({ exercises }: { exercises: Exercise[] }) {
             </h2>
             <div className="divide-y rounded-md border">
               {items.map((exercise) => (
-                <div key={exercise.id} className="px-3 py-2.5 text-sm">
-                  {exercise.name}
-                </div>
+                <Link
+                  key={exercise.id}
+                  href={`/exercises/${exercise.id}`}
+                  className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-muted/50"
+                >
+                  <span>{exercise.name}</span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
               ))}
             </div>
           </div>

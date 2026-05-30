@@ -408,6 +408,127 @@ export type SessionDetail = {
 export type HistorySet = { set_number: number; weight_kg: number | null; reps: number }
 export type HistorySession = { finished_at: string; sets: HistorySet[] }
 
+// database.ts (auto-generated) doesn't include the progress RPCs yet, so we call them
+// through a minimally-typed wrapper instead of widening the whole client to `any`.
+type RpcResult<T> = { data: T | null; error: { message: string } | null }
+function callRpc<T>(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  fn: string,
+  args: Record<string, unknown>
+): Promise<RpcResult<T>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (supabase.rpc as any)(fn, args)
+}
+
+export type ProgressPoint = {
+  session_id: string
+  finished_at: string
+  top_weight: number
+  est_1rm: number
+  total_volume: number
+  is_weight_pr: boolean
+  is_1rm_pr: boolean
+  is_volume_pr: boolean
+}
+
+export type ExerciseProgress = {
+  exerciseName: string
+  points: ProgressPoint[]
+  // Best-ever value for each metric; null when no weighted sets have been logged.
+  prs: { topWeight: number; est1rm: number; totalVolume: number } | null
+}
+
+export async function getExerciseProgress(
+  exerciseId: string
+): Promise<{ data: ExerciseProgress | null; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { data: null, error: "Unauthorized" }
+
+  const { data: exercise } = await supabase
+    .from("exercises")
+    .select("name")
+    .eq("id", exerciseId)
+    .single()
+  if (!exercise) return { data: null, error: "Exercise not found" }
+
+  type RawRow = {
+    session_id: string
+    finished_at: string
+    top_weight: number | string
+    est_1rm: number | string
+    total_volume: number | string
+    is_weight_pr: boolean
+    is_1rm_pr: boolean
+    is_volume_pr: boolean
+  }
+
+  const { data, error } = await callRpc<RawRow[]>(supabase, "get_exercise_progress", {
+    p_exercise_id: exerciseId,
+  })
+  if (error) return { data: null, error: error.message }
+
+  const points: ProgressPoint[] = (data ?? []).map((r) => ({
+    session_id: r.session_id,
+    finished_at: r.finished_at,
+    top_weight: Number(r.top_weight),
+    est_1rm: Number(r.est_1rm),
+    total_volume: Number(r.total_volume),
+    is_weight_pr: r.is_weight_pr,
+    is_1rm_pr: r.is_1rm_pr,
+    is_volume_pr: r.is_volume_pr,
+  }))
+
+  const prs = points.length
+    ? {
+        topWeight: Math.max(...points.map((p) => p.top_weight)),
+        est1rm: Math.max(...points.map((p) => p.est_1rm)),
+        totalVolume: Math.max(...points.map((p) => p.total_volume)),
+      }
+    : null
+
+  return { data: { exerciseName: exercise.name, points, prs } }
+}
+
+export type SessionPR = {
+  exercise_id: string
+  exercise_name: string
+  weight_pr: number | null
+  est_1rm_pr: number | null
+  volume_pr: number | null
+}
+
+export async function getSessionPRs(sessionId: string): Promise<SessionPR[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  type RawRow = {
+    exercise_id: string
+    exercise_name: string
+    weight_pr: number | string | null
+    est_1rm_pr: number | string | null
+    volume_pr: number | string | null
+  }
+
+  const { data, error } = await callRpc<RawRow[]>(supabase, "get_session_prs", {
+    p_session_id: sessionId,
+  })
+  if (error || !data) return []
+
+  return data.map((r) => ({
+    exercise_id: r.exercise_id,
+    exercise_name: r.exercise_name,
+    weight_pr: r.weight_pr != null ? Number(r.weight_pr) : null,
+    est_1rm_pr: r.est_1rm_pr != null ? Number(r.est_1rm_pr) : null,
+    volume_pr: r.volume_pr != null ? Number(r.volume_pr) : null,
+  }))
+}
+
 export async function getExerciseHistory(
   exerciseId: string
 ): Promise<{ data: HistorySession[] | null }> {

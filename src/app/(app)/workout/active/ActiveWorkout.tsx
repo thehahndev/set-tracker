@@ -14,6 +14,7 @@ import {
   removeExerciseFromSession,
   finishWorkout,
   getExerciseHistory,
+  getSessionPRs,
   type WorkoutSession,
   type HistorySession,
 } from "@/lib/actions/workout"
@@ -349,6 +350,18 @@ export function ActiveWorkout({
       return
     }
     localStorage.removeItem("activeSessionId")
+
+    // Celebrate any personal records set this session (best-effort — never blocks the finish).
+    const prs = await getSessionPRs(session.id)
+    if (prs.length > 0) {
+      toast.success(
+        prs.length === 1
+          ? `🎉 New PR — ${prs[0].exercise_name}`
+          : `🎉 ${prs.length} new PRs this workout!`,
+        { duration: 6000 }
+      )
+    }
+
     router.push("/history")
   }
 
