@@ -2,9 +2,14 @@
 
 import { useState, useTransition } from "react"
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { getWorkoutHistory, type HistorySummary } from "@/lib/actions/workout"
+import {
+  deleteSession,
+  getWorkoutHistory,
+  type HistorySummary,
+} from "@/lib/actions/workout"
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-AU", {
@@ -31,6 +36,7 @@ export function HistoryList({
 }) {
   const [sessions, setSessions] = useState(initialSessions)
   const [nextCursor, setNextCursor] = useState(initialNextCursor)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function loadMore() {
@@ -44,6 +50,47 @@ export function HistoryList({
     })
   }
 
+  function handleDelete(sessionId: string) {
+    setConfirmId(null)
+    const removedIndex = sessions.findIndex((s) => s.id === sessionId)
+    if (removedIndex === -1) return
+    const removedSession = sessions[removedIndex]
+
+    // Optimistic remove with a 4s undo window — the server call is deferred and cancelled on undo
+    // so an undo can never race a completed delete (same pattern as the active workout).
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+
+    const restore = () => {
+      setSessions((prev) => {
+        const next = [...prev]
+        next.splice(removedIndex, 0, removedSession)
+        return next
+      })
+    }
+
+    let undone = false
+    const commit = setTimeout(async () => {
+      const result = await deleteSession({ sessionId })
+      if (undone) return
+      if (result?.error) {
+        restore()
+        toast.error("Couldn't delete workout")
+      }
+    }, 4000)
+
+    toast("Workout deleted", {
+      duration: 4000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          undone = true
+          clearTimeout(commit)
+          restore()
+        },
+      },
+    })
+  }
+
   return (
     <>
       <div className="divide-y rounded-md border">
@@ -53,28 +100,59 @@ export function HistoryList({
             (acc, se) => acc + se.set_entries.length,
             0
           )
+          const isConfirming = confirmId === session.id
           return (
-            <Link
+            <div
               key={session.id}
-              href={`/history/${session.id}`}
-              className="flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+              className="flex items-center hover:bg-muted/50 transition-colors"
             >
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">{formatDate(session.finished_at)}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatDuration(session.started_at, session.finished_at)}
-                  {exerciseCount > 0 && (
-                    <>
-                      {" · "}
-                      {exerciseCount} {exerciseCount === 1 ? "exercise" : "exercises"}
-                      {" · "}
-                      {setCount} {setCount === 1 ? "set" : "sets"}
-                    </>
-                  )}
-                </p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
+              <Link
+                href={`/history/${session.id}`}
+                className="flex flex-1 items-center justify-between px-4 py-3 min-w-0"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">{formatDate(session.finished_at)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDuration(session.started_at, session.finished_at)}
+                    {exerciseCount > 0 && (
+                      <>
+                        {" · "}
+                        {exerciseCount} {exerciseCount === 1 ? "exercise" : "exercises"}
+                        {" · "}
+                        {setCount} {setCount === 1 ? "set" : "sets"}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+              {isConfirming ? (
+                <div className="flex items-center gap-1 pr-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setConfirmId(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDelete(session.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  aria-label="Delete workout"
+                  onClick={() => setConfirmId(session.id)}
+                  className="flex min-h-[44px] min-w-[44px] items-center justify-center text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           )
         })}
       </div>

@@ -149,6 +149,11 @@ export async function addSet(input: z.infer<typeof addSetSchema>) {
     .single()
 
   if (error) return { error: error.message }
+
+  // Harmless during an active workout (different path); keeps history/dashboard fresh when
+  // adding a set to a finished session from the edit screen.
+  revalidatePath("/history")
+  revalidatePath("/dashboard")
   return { data }
 }
 
@@ -166,6 +171,68 @@ export async function deleteSet(setId: string) {
     .eq("user_id", user.id)
 
   if (error) return { error: error.message }
+
+  // Keep the history list/detail and dashboard fresh when editing a finished session.
+  // These paths differ from /workout/active, so the active-workout client flow is untouched.
+  revalidatePath("/history")
+  revalidatePath("/dashboard")
+  return { data: true }
+}
+
+const updateSetSchema = z.object({
+  setId: z.string().uuid(),
+  weightKg: z.number().nonnegative().nullable(),
+  reps: z.number().int().positive(),
+})
+
+export async function updateSet(input: z.infer<typeof updateSetSchema>) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  const parsed = updateSetSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.message }
+
+  const { error } = await supabase
+    .from("set_entries")
+    .update({ weight_kg: parsed.data.weightKg, reps: parsed.data.reps })
+    .eq("id", parsed.data.setId)
+    .eq("user_id", user.id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/history")
+  revalidatePath("/dashboard")
+  return { data: true }
+}
+
+const deleteSessionSchema = z.object({ sessionId: z.string().uuid() })
+
+export async function deleteSession(input: z.infer<typeof deleteSessionSchema>) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  const parsed = deleteSessionSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.message }
+
+  // Guard on finished_at so this can only delete a completed session, never an active one
+  // (cancelWorkout owns active-session deletion). Children cascade via ON DELETE CASCADE.
+  const { error } = await supabase
+    .from("workout_sessions")
+    .delete()
+    .eq("id", parsed.data.sessionId)
+    .eq("user_id", user.id)
+    .not("finished_at", "is", null)
+
+  if (error) return { error: error.message }
+
+  revalidatePath("/history")
+  revalidatePath("/dashboard")
   return { data: true }
 }
 
@@ -305,6 +372,9 @@ export async function removeExerciseFromSession(sessionExerciseId: string) {
     .eq("id", sessionExerciseId)
 
   if (error) return { error: error.message }
+
+  revalidatePath("/history")
+  revalidatePath("/dashboard")
   return { data: true }
 }
 
@@ -327,6 +397,7 @@ export type SessionDetail = {
     display_order: number
     exercises: { name: string } | null
     set_entries: Array<{
+      id: string
       set_number: number
       weight_kg: number | null
       reps: number
@@ -474,7 +545,7 @@ export async function getSessionDetail(sessionId: string): Promise<{
        session_exercises (
          id, display_order,
          exercises (name),
-         set_entries (set_number, weight_kg, reps)
+         set_entries (id, set_number, weight_kg, reps)
        )`
     )
     .eq("id", sessionId)
