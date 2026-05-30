@@ -18,6 +18,7 @@ import {
   type HistorySession,
 } from "@/lib/actions/workout"
 import { ExercisePicker } from "./ExercisePicker"
+import { RestTimer, useRestTimer } from "./RestTimer"
 
 type SessionExercise = WorkoutSession["session_exercises"][number]
 
@@ -84,6 +85,7 @@ export function ActiveWorkout({
   const [templateName, setTemplateName] = useState("")
   const [finishing, setFinishing] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const restTimer = useRestTimer()
 
   useEffect(() => {
     const start = new Date(session.started_at).getTime()
@@ -186,6 +188,8 @@ export function ActiveWorkout({
       )
     )
 
+    // Set confirmed by the server — kick off the rest countdown
+    restTimer.start()
   }
 
   function handleDeleteSet(exerciseId: string, setId: string) {
@@ -365,7 +369,7 @@ export function ActiveWorkout({
         </Button>
       </div>
 
-      <div className="space-y-4 px-4 py-4 pb-20">
+      <div className="space-y-4 px-4 py-4 pb-44">
         {exercises.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
             Tap Add Exercise to get started.
@@ -537,7 +541,8 @@ export function ActiveWorkout({
       </div>
 
       {/* Fixed bottom action bar — sits above the fixed bottom nav (h-16 = bottom-16) */}
-      <div className="fixed bottom-16 left-0 right-0 z-[51] border-t bg-background px-4 py-3">
+      <div className="fixed bottom-16 left-0 right-0 z-[51] space-y-3 border-t bg-background px-4 py-3">
+        <RestTimer controller={restTimer} />
         <Button variant="outline" className="w-full" onClick={() => setShowPicker(true)}>
           <Plus className="h-4 w-4" />
           Add Exercise
