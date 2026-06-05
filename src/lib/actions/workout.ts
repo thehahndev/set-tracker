@@ -394,6 +394,7 @@ export type SessionDetail = {
   finished_at: string
   session_exercises: Array<{
     id: string
+    exercise_id: string
     display_order: number
     exercises: { name: string } | null
     set_entries: Array<{
@@ -664,7 +665,7 @@ export async function getSessionDetail(sessionId: string): Promise<{
     .select(
       `id, started_at, finished_at,
        session_exercises (
-         id, display_order,
+         id, exercise_id, display_order,
          exercises (name),
          set_entries (id, set_number, weight_kg, reps)
        )`

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Plus, Trash2, X } from "lucide-react"
+import { ChevronLeft, Plus, Trash2, TrendingUp, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -306,6 +306,14 @@ export function EditableSessionDetail({ session }: { session: SessionDetail }) {
               <div key={exercise.id} className="space-y-2">
                 <div className="flex items-center gap-1">
                   <h2 className="flex-1 font-medium">{exercise.exercises?.name ?? "Unknown"}</h2>
+                  <Link
+                    href={`/exercises/${exercise.exercise_id}`}
+                    aria-label={`View progress for ${exercise.exercises?.name ?? "exercise"}`}
+                    className="flex min-h-[44px] items-center gap-1 px-2 text-sm text-muted-foreground active:text-foreground"
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    Progress
+                  </Link>
                   <button
                     aria-label="Remove exercise"
                     onClick={() => handleRemoveExercise(exercise.id)}
