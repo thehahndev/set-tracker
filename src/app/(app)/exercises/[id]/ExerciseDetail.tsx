@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -24,6 +25,7 @@ function shortDate(iso: string) {
 }
 
 export function ExerciseDetail({ progress }: { progress: ExerciseProgress }) {
+  const router = useRouter()
   const [metric, setMetric] = useState<Metric>("est_1rm")
   const { exerciseName, points, prs } = progress
 
@@ -39,8 +41,17 @@ export function ExerciseDetail({ progress }: { progress: ExerciseProgress }) {
       <div className="flex items-center gap-2">
         <Link
           href="/exercises"
-          className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
-          aria-label="Back to exercises"
+          aria-label="Go back"
+          onClick={(e) => {
+            // Go back to the actual previous screen (e.g. a history session) when there's
+            // in-app history; the href is the fallback for deep links / refresh / new tab,
+            // where router.back() would dead-end or leave the app.
+            if (window.history.length > 1) {
+              e.preventDefault()
+              router.back()
+            }
+          }}
+          className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground active:text-foreground"
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
