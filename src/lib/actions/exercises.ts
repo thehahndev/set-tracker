@@ -4,10 +4,13 @@ import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-const createExerciseSchema = z.object({
+const exerciseFieldsSchema = z.object({
   name: z.string().min(1).max(100),
   category: z.string().max(50).nullable().optional(),
 })
+
+const createExerciseSchema = exerciseFieldsSchema
+const updateExerciseSchema = exerciseFieldsSchema.extend({ id: z.string().uuid() })
 
 export async function createExercise(input: z.infer<typeof createExerciseSchema>) {
   const supabase = await createClient()
@@ -32,6 +35,38 @@ export async function createExercise(input: z.infer<typeof createExerciseSchema>
   if (error) return { error: error.message }
   revalidatePath("/exercises")
   return { data }
+}
+
+export async function getExercise(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from("exercises")
+    .select("id, name, category, created_by")
+    .eq("id", id)
+    .single()
+  if (error) return { error: error.message }
+  return { data }
+}
+
+export async function updateExercise(input: z.infer<typeof updateExerciseSchema>) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Unauthorized" }
+
+  const parsed = updateExerciseSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.message }
+
+  const { error } = await supabase
+    .from("exercises")
+    .update({ name: parsed.data.name, category: parsed.data.category ?? null })
+    .eq("id", parsed.data.id)
+
+  if (error) return { error: error.message }
+  revalidatePath("/exercises")
+  revalidatePath(`/exercises/${parsed.data.id}`)
+  return {}
 }
 
 export async function getExercises(search?: string) {

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Trophy } from "lucide-react"
+import { ChevronLeft, Pencil, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ProgressChart } from "./ProgressChart"
 import type { ExerciseProgress, ProgressPoint } from "@/lib/actions/workout"
@@ -24,7 +24,17 @@ function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-export function ExerciseDetail({ progress }: { progress: ExerciseProgress }) {
+type Exercise = { id: string; name: string; category: string | null }
+
+export function ExerciseDetail({
+  progress,
+  exercise,
+  isOwner,
+}: {
+  progress: ExerciseProgress
+  exercise: Exercise
+  isOwner: boolean
+}) {
   const router = useRouter()
   const [metric, setMetric] = useState<Metric>("est_1rm")
   const { exerciseName, points, prs } = progress
@@ -55,7 +65,21 @@ export function ExerciseDetail({ progress }: { progress: ExerciseProgress }) {
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-xl font-semibold">{exerciseName}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-semibold">{exerciseName}</h1>
+          {exercise.category && (
+            <p className="text-xs text-muted-foreground capitalize">{exercise.category}</p>
+          )}
+        </div>
+        {isOwner && (
+          <Link
+            href={`/exercises/${exercise.id}/edit`}
+            aria-label="Edit exercise"
+            className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground active:text-foreground"
+          >
+            <Pencil className="h-4 w-4" />
+          </Link>
+        )}
       </div>
 
       {!prs || points.length === 0 ? (
