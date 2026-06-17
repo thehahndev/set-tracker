@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { X, Search, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { createExercise, getExercises } from "@/lib/actions/exercises"
+import { CustomBadge } from "@/components/CustomBadge"
 
-type Exercise = { id: string; name: string; category: string | null }
+type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
 
 interface Props {
-  onSelect: (exerciseId: string, exerciseName: string) => void
+  onSelect: (exerciseId: string, exerciseName: string, createdBy: string | null) => void
   onClose: () => void
   /** When true, offer inline creation of a new custom exercise from the search term. */
   allowCreate?: boolean
@@ -51,7 +52,7 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
     }
     // Hand off to the same path as picking an existing exercise; the parent closes the picker
     // and adds the exercise to the session optimistically.
-    onSelect(result.data.id, result.data.name)
+    onSelect(result.data.id, result.data.name, result.data.created_by)
   }
 
   return (
@@ -93,7 +94,7 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
             {filtered.map((exercise) => (
               <button
                 key={exercise.id}
-                onClick={() => onSelect(exercise.id, exercise.name)}
+                onClick={() => onSelect(exercise.id, exercise.name, exercise.created_by)}
                 className="flex min-h-[44px] w-full items-center px-4 py-3 text-left text-sm hover:bg-muted"
               >
                 <span className="font-medium">{exercise.name}</span>
@@ -102,6 +103,7 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
                     {exercise.category}
                   </span>
                 )}
+                {exercise.created_by && <CustomBadge className="ml-2" />}
               </button>
             ))}
             {showCreate && (

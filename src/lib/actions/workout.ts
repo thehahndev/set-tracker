@@ -12,7 +12,7 @@ export type WorkoutSession = {
     id: string
     exercise_id: string
     display_order: number
-    exercises: { name: string } | null
+    exercises: { name: string; created_by: string | null } | null
     set_entries: Array<{
       id: string
       set_number: number
@@ -35,7 +35,7 @@ export async function getWorkoutSession(sessionId: string) {
       `id, started_at, source_template_id,
        session_exercises (
          id, exercise_id, display_order,
-         exercises (name),
+         exercises (name, created_by),
          set_entries (id, set_number, weight_kg, reps)
        )`
     )
@@ -396,7 +396,7 @@ export type SessionDetail = {
     id: string
     exercise_id: string
     display_order: number
-    exercises: { name: string } | null
+    exercises: { name: string; created_by: string | null } | null
     set_entries: Array<{
       id: string
       set_number: number
@@ -666,7 +666,7 @@ export async function getSessionDetail(sessionId: string): Promise<{
       `id, started_at, finished_at,
        session_exercises (
          id, exercise_id, display_order,
-         exercises (name),
+         exercises (name, created_by),
          set_entries (id, set_number, weight_kg, reps)
        )`
     )

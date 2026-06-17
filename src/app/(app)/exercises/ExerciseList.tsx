@@ -3,8 +3,9 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import { ChevronRight, Search } from "lucide-react"
+import { CustomBadge } from "@/components/CustomBadge"
 
-type Exercise = { id: string; name: string; category: string | null }
+type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
 
 const CATEGORY_ORDER = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "calves", "core"]
 
@@ -63,9 +64,12 @@ export function ExerciseList({ exercises }: { exercises: Exercise[] }) {
                 <Link
                   key={exercise.id}
                   href={`/exercises/${exercise.id}`}
-                  className="flex items-center justify-between px-3 py-2.5 text-sm hover:bg-muted/50"
+                  className="flex items-center justify-between gap-2 px-3 py-2.5 text-sm hover:bg-muted/50"
                 >
-                  <span>{exercise.name}</span>
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="min-w-0 truncate">{exercise.name}</span>
+                    {exercise.created_by && <CustomBadge />}
+                  </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </Link>
               ))}

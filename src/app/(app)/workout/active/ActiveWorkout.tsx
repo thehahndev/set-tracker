@@ -20,6 +20,7 @@ import {
 } from "@/lib/actions/workout"
 import { ExercisePicker } from "./ExercisePicker"
 import { RestTimer, useRestTimer } from "./RestTimer"
+import { CustomBadge } from "@/components/CustomBadge"
 
 type SessionExercise = WorkoutSession["session_exercises"][number]
 
@@ -282,7 +283,7 @@ export function ActiveWorkout({
     })
   }
 
-  function handleAddExercise(exerciseId: string, exerciseName: string) {
+  function handleAddExercise(exerciseId: string, exerciseName: string, createdBy: string | null) {
     setShowPicker(false)
     const displayOrder = (exercises[exercises.length - 1]?.display_order ?? 0) + 1
     const tempId = `pending-ex-${Date.now()}`
@@ -293,7 +294,7 @@ export function ActiveWorkout({
         id: tempId,
         exercise_id: exerciseId,
         display_order: displayOrder,
-        exercises: { name: exerciseName },
+        exercises: { name: exerciseName, created_by: createdBy },
         set_entries: [],
       },
     ])
@@ -411,7 +412,10 @@ export function ActiveWorkout({
                   className="flex min-h-[44px] flex-1 items-center gap-2 text-left"
                 >
                   <div className="flex-1 min-w-0">
-                    <h2 className="font-medium">{exercise.exercises?.name ?? "Unknown"}</h2>
+                    <h2 className="flex min-w-0 items-center gap-2 font-medium">
+                      <span className="min-w-0 truncate">{exercise.exercises?.name ?? "Unknown"}</span>
+                      {exercise.exercises?.created_by && <CustomBadge />}
+                    </h2>
                     {isCollapsed && setCount > 0 && lastSetSummary && (
                       <p className="text-xs text-muted-foreground">
                         {setCount} {setCount === 1 ? "set" : "sets"} · {lastSetSummary}
