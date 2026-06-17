@@ -15,6 +15,7 @@ import {
   updateSet,
   type SessionDetail,
 } from "@/lib/actions/workout"
+import { CustomBadge } from "@/components/CustomBadge"
 
 type Exercise = SessionDetail["session_exercises"][number]
 
@@ -305,7 +306,10 @@ export function EditableSessionDetail({ session }: { session: SessionDetail }) {
             return (
               <div key={exercise.id} className="space-y-2">
                 <div className="flex items-center gap-1">
-                  <h2 className="flex-1 font-medium">{exercise.exercises?.name ?? "Unknown"}</h2>
+                  <h2 className="flex min-w-0 flex-1 items-center gap-2 font-medium">
+                    <span className="min-w-0 truncate">{exercise.exercises?.name ?? "Unknown"}</span>
+                    {exercise.exercises?.created_by && <CustomBadge />}
+                  </h2>
                   <Link
                     href={`/exercises/${exercise.exercise_id}`}
                     aria-label={`View progress for ${exercise.exercises?.name ?? "exercise"}`}

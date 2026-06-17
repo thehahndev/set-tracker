@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { X, Search, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { createExercise, getExercises } from "@/lib/actions/exercises"
+import { CustomBadge } from "@/components/CustomBadge"
 
 type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
 
@@ -102,6 +103,7 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
                     {exercise.category}
                   </span>
                 )}
+                {exercise.created_by && <CustomBadge className="ml-2" />}
               </button>
             ))}
             {showCreate && (

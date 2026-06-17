@@ -20,6 +20,7 @@ import {
 } from "@/lib/actions/workout"
 import { ExercisePicker } from "./ExercisePicker"
 import { RestTimer, useRestTimer } from "./RestTimer"
+import { CustomBadge } from "@/components/CustomBadge"
 
 type SessionExercise = WorkoutSession["session_exercises"][number]
 
@@ -413,11 +414,7 @@ export function ActiveWorkout({
                   <div className="flex-1 min-w-0">
                     <h2 className="flex min-w-0 items-center gap-2 font-medium">
                       <span className="min-w-0 truncate">{exercise.exercises?.name ?? "Unknown"}</span>
-                      {exercise.exercises?.created_by && (
-                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Custom
-                        </span>
-                      )}
+                      {exercise.exercises?.created_by && <CustomBadge />}
                     </h2>
                     {isCollapsed && setCount > 0 && lastSetSummary && (
                       <p className="text-xs text-muted-foreground">

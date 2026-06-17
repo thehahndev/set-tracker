@@ -6,6 +6,7 @@ import Link from "next/link"
 import { ChevronLeft, Pencil, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ProgressChart } from "./ProgressChart"
+import { CustomBadge } from "@/components/CustomBadge"
 import type { ExerciseProgress, ProgressPoint } from "@/lib/actions/workout"
 
 type Metric = "weight" | "est_1rm" | "volume"
@@ -24,7 +25,7 @@ function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-type Exercise = { id: string; name: string; category: string | null }
+type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
 
 export function ExerciseDetail({
   progress,
@@ -66,7 +67,10 @@ export function ExerciseDetail({
           <ChevronLeft className="h-5 w-5" />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-semibold">{exerciseName}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="min-w-0 truncate text-xl font-semibold">{exerciseName}</h1>
+            {exercise.created_by && <CustomBadge />}
+          </div>
           {exercise.category && (
             <p className="text-xs text-muted-foreground capitalize">{exercise.category}</p>
           )}
