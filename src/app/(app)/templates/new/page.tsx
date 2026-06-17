@@ -101,7 +101,11 @@ export default function NewTemplatePage() {
       </div>
 
       {showPicker && (
-        <ExercisePicker onSelect={handleSelect} onClose={() => setShowPicker(false)} />
+        <ExercisePicker
+          onSelect={handleSelect}
+          onClose={() => setShowPicker(false)}
+          allowCreate
+        />
       )}
     </>
   )

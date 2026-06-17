@@ -563,7 +563,11 @@ export function ActiveWorkout({
       </div>
 
       {showPicker && (
-        <ExercisePicker onSelect={handleAddExercise} onClose={() => setShowPicker(false)} />
+        <ExercisePicker
+          onSelect={handleAddExercise}
+          onClose={() => setShowPicker(false)}
+          allowCreate
+        />
       )}
 
       {showFinish && (
