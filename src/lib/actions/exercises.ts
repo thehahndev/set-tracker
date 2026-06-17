@@ -33,7 +33,7 @@ export async function createExercise(input: z.infer<typeof createExerciseSchema>
       category: parsed.data.category ?? null,
       created_by: user.id,
     })
-    .select("id, name, category")
+    .select("id, name, category, created_by")
     .single()
 
   if (error) {
@@ -82,7 +82,7 @@ export async function updateExercise(input: z.infer<typeof updateExerciseSchema>
 export async function getExercises(search?: string) {
   const supabase = await createClient()
 
-  let query = supabase.from("exercises").select("id, name, category").order("name")
+  let query = supabase.from("exercises").select("id, name, category, created_by").order("name")
 
   if (search) {
     query = query.ilike("name", `%${search}%`)
