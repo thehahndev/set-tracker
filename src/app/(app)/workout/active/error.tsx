@@ -6,10 +6,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 
 export default function ActiveWorkoutError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string }
-  reset: () => void
+  unstable_retry: () => void
 }) {
   useEffect(() => {
     console.error(error)
@@ -22,7 +22,7 @@ export default function ActiveWorkoutError({
         Your logged sets are saved. Reload to continue your workout, or head back to the dashboard.
       </p>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={() => reset()}>Reload workout</Button>
+        <Button variant="outline" onClick={() => unstable_retry()}>Reload workout</Button>
         <Link href="/dashboard" className={buttonVariants()}>
           Go to dashboard
         </Link>

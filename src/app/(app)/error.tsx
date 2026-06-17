@@ -6,10 +6,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 
 export default function AppError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string }
-  reset: () => void
+  unstable_retry: () => void
 }) {
   useEffect(() => {
     console.error(error)
@@ -22,7 +22,7 @@ export default function AppError({
         An unexpected error occurred. You can try again or return to the dashboard.
       </p>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={() => reset()}>Try again</Button>
+        <Button variant="outline" onClick={() => unstable_retry()}>Try again</Button>
         <Link href="/dashboard" className={buttonVariants()}>
           Go to dashboard
         </Link>
