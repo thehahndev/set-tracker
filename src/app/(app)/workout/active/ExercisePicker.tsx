@@ -1,20 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Search } from "lucide-react"
-import { getExercises } from "@/lib/actions/exercises"
+import { X, Search, Plus } from "lucide-react"
+import { toast } from "sonner"
+import { createExercise, getExercises } from "@/lib/actions/exercises"
 
 type Exercise = { id: string; name: string; category: string | null }
 
 interface Props {
   onSelect: (exerciseId: string, exerciseName: string) => void
   onClose: () => void
+  /** When true, offer inline creation of a new custom exercise from the search term. */
+  allowCreate?: boolean
 }
 
-export function ExercisePicker({ onSelect, onClose }: Props) {
+export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props) {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
 
   useEffect(() => {
     getExercises().then(({ data }) => {
@@ -23,9 +27,32 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
     })
   }, [])
 
-  const filtered = search.trim()
-    ? exercises.filter((e) => e.name.toLowerCase().includes(search.toLowerCase()))
+  const trimmedSearch = search.trim()
+  const filtered = trimmedSearch
+    ? exercises.filter((e) => e.name.toLowerCase().includes(trimmedSearch.toLowerCase()))
     : exercises
+
+  // Offer inline creation only once the library has loaded (so we can dedupe) and the typed
+  // name doesn't already exist — exercises.name is globally UNIQUE, so creating a duplicate
+  // would fail at the DB. An exact match should be tapped in the list instead.
+  const hasExactMatch = exercises.some(
+    (e) => e.name.toLowerCase() === trimmedSearch.toLowerCase()
+  )
+  const showCreate = allowCreate && !loading && trimmedSearch !== "" && !hasExactMatch
+
+  async function handleCreate() {
+    if (!trimmedSearch || creating) return
+    setCreating(true)
+    const result = await createExercise({ name: trimmedSearch, category: null })
+    if (result.error || !result.data) {
+      toast.error(result.error ?? "Couldn't create exercise")
+      setCreating(false)
+      return
+    }
+    // Hand off to the same path as picking an existing exercise; the parent closes the picker
+    // and adds the exercise to the session optimistically.
+    onSelect(result.data.id, result.data.name)
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
@@ -61,23 +88,38 @@ export function ExercisePicker({ onSelect, onClose }: Props) {
               </div>
             </div>
           ))
-        ) : filtered.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">No exercises found</p>
         ) : (
-          filtered.map((exercise) => (
-            <button
-              key={exercise.id}
-              onClick={() => onSelect(exercise.id, exercise.name)}
-              className="flex min-h-[44px] w-full items-center px-4 py-3 text-left text-sm hover:bg-muted"
-            >
-              <span className="font-medium">{exercise.name}</span>
-              {exercise.category && (
-                <span className="ml-2 text-xs capitalize text-muted-foreground">
-                  {exercise.category}
-                </span>
-              )}
-            </button>
-          ))
+          <>
+            {filtered.map((exercise) => (
+              <button
+                key={exercise.id}
+                onClick={() => onSelect(exercise.id, exercise.name)}
+                className="flex min-h-[44px] w-full items-center px-4 py-3 text-left text-sm hover:bg-muted"
+              >
+                <span className="font-medium">{exercise.name}</span>
+                {exercise.category && (
+                  <span className="ml-2 text-xs capitalize text-muted-foreground">
+                    {exercise.category}
+                  </span>
+                )}
+              </button>
+            ))}
+            {showCreate && (
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="flex min-h-[44px] w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-primary hover:bg-muted disabled:opacity-60"
+              >
+                <Plus className="h-4 w-4 shrink-0" />
+                <span>{creating ? "Creating…" : `Create “${trimmedSearch}”`}</span>
+              </button>
+            )}
+            {filtered.length === 0 && !showCreate && (
+              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No exercises found
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>
