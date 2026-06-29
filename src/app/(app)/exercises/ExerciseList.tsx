@@ -13,7 +13,13 @@ function formatCategory(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1)
 }
 
-export function ExerciseList({ exercises }: { exercises: Exercise[] }) {
+export function ExerciseList({
+  exercises,
+  currentUserId,
+}: {
+  exercises: Exercise[]
+  currentUserId: string | null
+}) {
   const [search, setSearch] = useState("")
 
   const filtered = useMemo(() => {
@@ -68,7 +74,9 @@ export function ExerciseList({ exercises }: { exercises: Exercise[] }) {
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="min-w-0 truncate">{exercise.name}</span>
-                    {exercise.created_by && <CustomBadge />}
+                    {exercise.created_by != null && exercise.created_by === currentUserId && (
+                      <CustomBadge />
+                    )}
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 </Link>

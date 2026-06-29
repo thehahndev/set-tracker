@@ -2,10 +2,15 @@ import Link from "next/link"
 import { Plus } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
 import { getExercises } from "@/lib/actions/exercises"
+import { createClient } from "@/lib/supabase/server"
 import { ExerciseList } from "./ExerciseList"
 
 export default async function ExercisesPage() {
-  const { data: exercises, error } = await getExercises()
+  const supabase = await createClient()
+  const [{ data: exercises, error }, { data: { user } }] = await Promise.all([
+    getExercises(),
+    supabase.auth.getUser(),
+  ])
 
   return (
     <div className="px-4 py-6 space-y-4">
@@ -19,7 +24,7 @@ export default async function ExercisesPage() {
       {error ? (
         <p className="text-sm text-destructive">{error}</p>
       ) : (
-        <ExerciseList exercises={exercises ?? []} />
+        <ExerciseList exercises={exercises ?? []} currentUserId={user?.id ?? null} />
       )}
     </div>
   )

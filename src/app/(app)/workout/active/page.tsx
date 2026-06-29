@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getWorkoutSession, getExerciseHistory, getTemplateNameById, type HistorySession } from "@/lib/actions/workout"
+import { createClient } from "@/lib/supabase/server"
 import { ActiveWorkout } from "./ActiveWorkout"
 
 interface Props {
@@ -13,6 +14,11 @@ export default async function ActiveWorkoutPage({ searchParams }: Props) {
 
   const { data: session, error } = await getWorkoutSession(sessionId)
   if (error || !session) redirect("/dashboard")
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   const exerciseIds = session.session_exercises.map((se) => se.exercise_id)
   // Per-exercise history fetch is parallelised via Promise.all — see KNOWN_ISSUES.md #2 before collapsing into one RPC.
@@ -35,6 +41,7 @@ export default async function ActiveWorkoutPage({ searchParams }: Props) {
       session={session}
       exerciseHistory={exerciseHistory}
       sourceTemplateName={sourceTemplateName as string | null}
+      currentUserId={user?.id ?? null}
     />
   )
 }
