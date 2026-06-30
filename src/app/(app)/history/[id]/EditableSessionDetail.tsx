@@ -35,7 +35,13 @@ function formatDuration(startedAt: string, finishedAt: string) {
   return `${mins} min`
 }
 
-export function EditableSessionDetail({ session }: { session: SessionDetail }) {
+export function EditableSessionDetail({
+  session,
+  currentUserId,
+}: {
+  session: SessionDetail
+  currentUserId: string | null
+}) {
   const router = useRouter()
   const [exercises, setExercises] = useState<Exercise[]>(
     [...session.session_exercises].sort((a, b) => a.display_order - b.display_order)
@@ -308,7 +314,8 @@ export function EditableSessionDetail({ session }: { session: SessionDetail }) {
                 <div className="flex items-center gap-1">
                   <h2 className="flex min-w-0 flex-1 items-center gap-2 font-medium">
                     <span className="min-w-0 truncate">{exercise.exercises?.name ?? "Unknown"}</span>
-                    {exercise.exercises?.created_by && <CustomBadge />}
+                    {exercise.exercises?.created_by != null &&
+                      exercise.exercises.created_by === currentUserId && <CustomBadge />}
                   </h2>
                   <Link
                     href={`/exercises/${exercise.exercise_id}`}

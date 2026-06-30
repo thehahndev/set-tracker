@@ -59,10 +59,12 @@ export function ActiveWorkout({
   session,
   exerciseHistory,
   sourceTemplateName,
+  currentUserId,
 }: {
   session: WorkoutSession
   exerciseHistory: Record<string, HistorySession[]>
   sourceTemplateName: string | null
+  currentUserId: string | null
 }) {
   const router = useRouter()
   const [exercises, setExercises] = useState<SessionExercise[]>(
@@ -414,7 +416,8 @@ export function ActiveWorkout({
                   <div className="flex-1 min-w-0">
                     <h2 className="flex min-w-0 items-center gap-2 font-medium">
                       <span className="min-w-0 truncate">{exercise.exercises?.name ?? "Unknown"}</span>
-                      {exercise.exercises?.created_by && <CustomBadge />}
+                      {exercise.exercises?.created_by != null &&
+                        exercise.exercises.created_by === currentUserId && <CustomBadge />}
                     </h2>
                     {isCollapsed && setCount > 0 && lastSetSummary && (
                       <p className="text-xs text-muted-foreground">

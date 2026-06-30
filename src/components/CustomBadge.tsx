@@ -1,8 +1,10 @@
 import { cn } from "@/lib/utils"
 
 /**
- * Small "Custom" tag marking a user-created exercise (exercises.created_by != null),
- * as opposed to a seeded/built-in one. Bordered so it reads on any row background.
+ * Small "Custom" tag marking an exercise the *current* viewer created
+ * (exercises.created_by === current user). Exercises are a shared library, so another
+ * user's custom exercise is shown unbadged — indistinguishable from a seeded one — and
+ * callers must pass the viewer's id to decide ownership. Bordered so it reads on any row.
  */
 export function CustomBadge({ className }: { className?: string }) {
   return (

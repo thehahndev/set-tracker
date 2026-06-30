@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { X, Search, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { createExercise, getExercises } from "@/lib/actions/exercises"
+import { createClient } from "@/lib/supabase/client"
 import { CustomBadge } from "@/components/CustomBadge"
 
 type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
@@ -20,12 +21,18 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  // Viewer's id — the Custom badge is shown only for exercises they created (others' customs
+  // read as part of the shared library). Fetched here so both picker call sites stay simple.
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   useEffect(() => {
     getExercises().then(({ data }) => {
       if (data) setExercises(data)
       setLoading(false)
     })
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => setCurrentUserId(data.user?.id ?? null))
   }, [])
 
   const trimmedSearch = search.trim()
@@ -103,7 +110,9 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
                     {exercise.category}
                   </span>
                 )}
-                {exercise.created_by && <CustomBadge className="ml-2" />}
+                {exercise.created_by != null && exercise.created_by === currentUserId && (
+                  <CustomBadge className="ml-2" />
+                )}
               </button>
             ))}
             {showCreate && (

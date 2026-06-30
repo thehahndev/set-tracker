@@ -69,7 +69,7 @@ export function ExerciseDetail({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="min-w-0 truncate text-xl font-semibold">{exerciseName}</h1>
-            {exercise.created_by && <CustomBadge />}
+            {isOwner && <CustomBadge />}
           </div>
           {exercise.category && (
             <p className="text-xs text-muted-foreground capitalize">{exercise.category}</p>

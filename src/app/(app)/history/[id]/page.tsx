@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { getSessionDetail } from "@/lib/actions/workout"
+import { createClient } from "@/lib/supabase/server"
 import { EditableSessionDetail } from "./EditableSessionDetail"
 
 export default async function SessionDetailPage({
@@ -8,8 +9,12 @@ export default async function SessionDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const { data: session } = await getSessionDetail(id)
+  const [{ data: session }, supabase] = await Promise.all([getSessionDetail(id), createClient()])
   if (!session) notFound()
 
-  return <EditableSessionDetail session={session} />
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  return <EditableSessionDetail session={session} currentUserId={user?.id ?? null} />
 }
