@@ -92,11 +92,14 @@ All tables have Row-Level Security enabled.
 
 This file is the agent entry file and the pack (single-file shape; each pack section
 lives here unless noted; sections the repo lacks are omitted, and agents degrade
-accordingly — e.g. no label scheme is declared, so routing suggestions go in issue
-bodies, not applied as labels).
+accordingly).
 
 - **Verification commands** → Commands + CI/Deployment (below); no test suite —
   manual verification as described there.
+- **Label conventions** → every issue carries an `effort:S|M|L` size label plus a
+  routing label where scheduled: `next` (planned for upcoming work) or `deferred`
+  (backlog — revisit when triggered; pairs with KNOWN_ISSUES.md). GitHub default
+  labels (`bug`, `enhancement`, …) apply as usual. Declared scheme — agents apply it.
 - **Deferred-decision ledger** → [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) (see Known
   deferred issues below — check before "fixing" anything flagged by an audit).
 - **Doc map** → this file is canonical for stack, conventions, data model, and flows;
@@ -113,9 +116,10 @@ npm run build    # production build
 npm run lint     # ESLint
 npx tsc --noEmit # type check
 ```
-No test suite exists — verify manually: run `npm run dev`, exercise the changed flow in
-the browser, and check the resulting rows in Supabase; `npx tsc --noEmit` + `npm run lint`
-+ `npm run build` are the automated floor (CI runs the same three on every PR).
+No test suite exists — verify manually: run `npm run dev`, exercise the changed flow
+in the browser, and check the resulting rows in Supabase. The automated floor is
+`npx tsc --noEmit`, `npm run lint`, and `npm run build` (CI runs the same three on
+every PR).
 
 ### CI / Deployment
 - **Vercel** — production and preview deployments are automatic on push/PR
