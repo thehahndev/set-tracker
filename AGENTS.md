@@ -88,6 +88,24 @@ All tables have Row-Level Security enabled.
 6. Finish → `finishWorkout()` writes the template **before** setting `finished_at`, so a failed template save leaves the session active and the user can retry; Cancel → `cancelWorkout()` — both remove `activeSessionId` from localStorage
 7. Runtime errors inside the protected `(app)` route group are caught by `src/app/(app)/error.tsx`; `src/app/(app)/workout/active/error.tsx` overrides it with a workout-specific message. Both are Next.js App Router error boundaries (must be Client Components, receive `error` + `reset` props)
 
+### Project pack index
+
+This file is the agent entry file and the pack (single-file shape; each pack section
+lives here unless noted; sections the repo lacks are omitted, and agents degrade
+accordingly).
+
+- **Verification commands** → Commands + CI/Deployment (below); no test suite —
+  manual verification as described there.
+- **Label conventions** → every issue carries an `effort:S|M|L` size label plus a
+  routing label where scheduled: `next` (planned for upcoming work) or `deferred`
+  (backlog — revisit when triggered; pairs with KNOWN_ISSUES.md). GitHub default
+  labels (`bug`, `enhancement`, …) apply as usual. Declared scheme — agents apply it.
+- **Deferred-decision ledger** → [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) (see Known
+  deferred issues below — check before "fixing" anything flagged by an audit).
+- **Doc map** → this file is canonical for stack, conventions, data model, and flows;
+  `README.md` is orientation/setup only; `src/lib/types/database.ts` is generated —
+  never hand-edited and never read as intent.
+
 ### Known deferred issues
 See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) before "fixing" patterns flagged by an audit — several were consciously deferred (e.g. the workout page's parallel per-exercise history fetches look like an N+1 but are intentional at current scale).
 
@@ -98,7 +116,10 @@ npm run build    # production build
 npm run lint     # ESLint
 npx tsc --noEmit # type check
 ```
-No test suite exists.
+No test suite exists — verify manually: run `npm run dev`, exercise the changed flow
+in the browser, and check the resulting rows in Supabase. The automated floor is
+`npx tsc --noEmit`, `npm run lint`, and `npm run build` (CI runs the same three on
+every PR).
 
 ### CI / Deployment
 - **Vercel** — production and preview deployments are automatic on push/PR
