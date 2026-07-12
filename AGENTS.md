@@ -104,7 +104,10 @@ accordingly).
   deferred issues below — check before "fixing" anything flagged by an audit).
 - **Doc map** → this file is canonical for stack, conventions, data model, and flows;
   `README.md` is orientation/setup only; `src/lib/types/database.ts` is generated —
-  never hand-edited and never read as intent.
+  never hand-edited and never read as intent;
+  [`docs/remote-preview-testing.md`](./docs/remote-preview-testing.md) is the runbook for
+  driving browser tests against a PR's Vercel preview from a remote-control session
+  (relayed browser, magic-link login, bypass secret).
 
 ### Known deferred issues
 See [KNOWN_ISSUES.md](./KNOWN_ISSUES.md) before "fixing" patterns flagged by an audit — several were consciously deferred (e.g. the workout page's parallel per-exercise history fetches look like an N+1 but are intentional at current scale).
