@@ -17,6 +17,12 @@ const METRICS: { key: Metric; label: string }[] = [
   { key: "volume", label: "Volume" },
 ]
 
+// Assisted exercises track a single metric — the lowest assistance — so the toggle
+// collapses to just that, relabelled.
+const ASSISTED_METRICS: { key: Metric; label: string }[] = [
+  { key: "weight", label: "Least assist" },
+]
+
 function fmt(n: number) {
   return Number.isInteger(n) ? String(n) : (Math.round(n * 10) / 10).toString()
 }
@@ -41,9 +47,11 @@ export function ExerciseDetail({
   isOwner: boolean
 }) {
   const router = useRouter()
-  const [metric, setMetric] = useState<Metric>("est_1rm")
+  const { exerciseName, loadType, points, prs } = progress
+  const isAssisted = loadType === "assisted"
+  const metrics = isAssisted ? ASSISTED_METRICS : METRICS
+  const [metric, setMetric] = useState<Metric>(isAssisted ? "weight" : "est_1rm")
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const { exerciseName, points, prs } = progress
 
   const toggleSession = (sessionId: string) =>
     setExpanded((prev) => {
@@ -101,36 +109,46 @@ export function ExerciseDetail({
 
       {!prs || points.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          No weighted sets logged yet. Log weighted sets for this exercise to see weight, 1RM,
-          and volume trends.
+          {isAssisted
+            ? "No assisted sets logged yet. Log sets for this exercise to track your assistance trend."
+            : "No weighted sets logged yet. Log weighted sets for this exercise to see weight, 1RM, and volume trends."}
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2">
-            <PrCard label="Heaviest" value={`${fmt(prs.topWeight)} kg`} />
-            <PrCard label="Best 1RM" value={`${fmt(prs.est1rm)} kg`} />
-            <PrCard label="Best volume" value={fmt(prs.totalVolume)} />
-          </div>
+          {isAssisted ? (
+            <div className="grid grid-cols-1 gap-2">
+              <PrCard label="Least assist" value={`${fmt(prs.topWeight)} kg`} />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              <PrCard label="Heaviest" value={`${fmt(prs.topWeight)} kg`} />
+              <PrCard label="Best 1RM" value={`${fmt(prs.est1rm)} kg`} />
+              <PrCard label="Best volume" value={fmt(prs.totalVolume)} />
+            </div>
+          )}
 
-          <div className="flex rounded-md border p-0.5">
-            {METRICS.map((m) => (
-              <button
-                key={m.key}
-                onClick={() => setMetric(m.key)}
-                className={cn(
-                  "flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
-                  metric === m.key
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
+          {metrics.length > 1 && (
+            <div className="flex rounded-md border p-0.5">
+              {metrics.map((m) => (
+                <button
+                  key={m.key}
+                  onClick={() => setMetric(m.key)}
+                  className={cn(
+                    "flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
+                    metric === m.key
+                      ? "bg-foreground text-background"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="rounded-md border p-3">
             <ProgressChart
+              invert={isAssisted}
               points={points.map((p) => ({
                 date: shortDate(p.finished_at),
                 value: valueOf(p),

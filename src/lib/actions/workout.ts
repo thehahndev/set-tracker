@@ -434,10 +434,16 @@ export type ProgressPoint = {
   sets: HistorySet[]
 }
 
+export type LoadType = "external" | "assisted" | "bodyweight"
+
 export type ExerciseProgress = {
   exerciseName: string
+  // 'assisted' inverts the headline metric (lowest weight is best) and hides 1RM/volume.
+  loadType: LoadType
   points: ProgressPoint[]
   // Best-ever value for each metric; null when no weighted sets have been logged.
+  // For assisted exercises topWeight is the lowest assistance; est1rm/totalVolume are
+  // not meaningful and are not displayed.
   prs: { topWeight: number; est1rm: number; totalVolume: number } | null
 }
 
@@ -452,17 +458,21 @@ export async function getExerciseProgress(
 
   const { data: exercise } = await supabase
     .from("exercises")
-    .select("name")
+    .select("name, load_type")
     .eq("id", exerciseId)
     .single()
   if (!exercise) return { data: null, error: "Exercise not found" }
+
+  const loadType = (exercise.load_type ?? "external") as LoadType
+  const isAssisted = loadType === "assisted"
 
   type RawRow = {
     session_id: string
     finished_at: string
     top_weight: number | string
-    est_1rm: number | string
-    total_volume: number | string
+    // NULL for assisted exercises (1RM/volume are not meaningful there).
+    est_1rm: number | string | null
+    total_volume: number | string | null
     is_weight_pr: boolean
     is_1rm_pr: boolean
     is_volume_pr: boolean
@@ -496,8 +506,8 @@ export async function getExerciseProgress(
     session_id: r.session_id,
     finished_at: r.finished_at,
     top_weight: Number(r.top_weight),
-    est_1rm: Number(r.est_1rm),
-    total_volume: Number(r.total_volume),
+    est_1rm: r.est_1rm != null ? Number(r.est_1rm) : 0,
+    total_volume: r.total_volume != null ? Number(r.total_volume) : 0,
     is_weight_pr: r.is_weight_pr,
     is_1rm_pr: r.is_1rm_pr,
     is_volume_pr: r.is_volume_pr,
@@ -508,13 +518,16 @@ export async function getExerciseProgress(
 
   const prs = points.length
     ? {
-        topWeight: Math.max(...points.map((p) => p.top_weight)),
+        // Assisted: the best (headline) value is the lowest assistance logged.
+        topWeight: isAssisted
+          ? Math.min(...points.map((p) => p.top_weight))
+          : Math.max(...points.map((p) => p.top_weight)),
         est1rm: Math.max(...points.map((p) => p.est_1rm)),
         totalVolume: Math.max(...points.map((p) => p.total_volume)),
       }
     : null
 
-  return { data: { exerciseName: exercise.name, points, prs } }
+  return { data: { exerciseName: exercise.name, loadType, points, prs } }
 }
 
 export type SessionPR = {

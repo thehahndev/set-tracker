@@ -94,6 +94,11 @@ browser that requested it** — which is the relayed browser Claude drives, not 
 browser on your phone or laptop where your inbox is. That constraint is what makes this
 fiddly, and it is why the sequence below is specific:
 
+**Test account:** sign in as `thehahndev@gmail.com`. That is the account these previews
+are exercised against (previews read the **dev** Supabase project). Note this differs
+from the repo/commit author identity — use the Gmail address for app login, not any
+address configured in git.
+
 1. Claude opens the preview's `/login`, types your email, and clicks **Send sign-in
    link**. This step is load-bearing: sending the link from the relayed browser is what
    stores the PKCE `code_verifier` cookie in that browser. The page then shows "Check
@@ -142,6 +147,17 @@ npx supabase db query --db-url "$SUPABASE_DB_URL" --file supabase/seeds/dev-work
 It is idempotent (re-running replaces its own rows, never touches real data) and targets
 whatever `SUPABASE_DB_URL` points at, which is the dev project. See the file's header for
 details. Previews read the dev database, so seeded data shows up on the preview too.
+
+**If Claude is running the seed for you (auto-mode), it hits the safety classifier twice.**
+Both are expected; don't let it fall back to clicking through the UI:
+
+- Any query that *returns* `auth.users` rows (id/email) is blocked as PII. The seed avoids
+  this by resolving the user inside a `DO $$ … $$` block and printing only a `NOTICE` — so
+  keep new seeds in that shape rather than `SELECT`-ing the user out first.
+- Writing to the shared dev DB is blocked as "modify shared resources," and Claude cannot
+  grant itself the exception (editing the settings allowlist is also blocked). You clear it
+  once, either by adding `Bash(npx supabase db query *)` to `.claude/settings.local.json`
+  or by running the seed yourself with the `! <command>` prefix.
 
 ## Caveats
 
