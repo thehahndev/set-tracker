@@ -148,6 +148,17 @@ It is idempotent (re-running replaces its own rows, never touches real data) and
 whatever `SUPABASE_DB_URL` points at, which is the dev project. See the file's header for
 details. Previews read the dev database, so seeded data shows up on the preview too.
 
+**If Claude is running the seed for you (auto-mode), it hits the safety classifier twice.**
+Both are expected; don't let it fall back to clicking through the UI:
+
+- Any query that *returns* `auth.users` rows (id/email) is blocked as PII. The seed avoids
+  this by resolving the user inside a `DO $$ … $$` block and printing only a `NOTICE` — so
+  keep new seeds in that shape rather than `SELECT`-ing the user out first.
+- Writing to the shared dev DB is blocked as "modify shared resources," and Claude cannot
+  grant itself the exception (editing the settings allowlist is also blocked). You clear it
+  once, either by adding `Bash(npx supabase db query *)` to `.claude/settings.local.json`
+  or by running the seed yourself with the `! <command>` prefix.
+
 ## Caveats
 
 - Previews read the **dev** Supabase data — the same data your local dev server uses —
