@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { createExercise } from "@/lib/actions/exercises"
+import { createExercise, getExercises } from "@/lib/actions/exercises"
 
 const CATEGORIES = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "calves", "core"]
 
@@ -23,9 +23,30 @@ export default function NewExercisePage() {
   const [category, setCategory] = useState("")
   const [loadType, setLoadType] = useState<LoadTypeValue>("external")
   const [loading, setLoading] = useState(false)
+  // Existing library, loaded once, so the name field can warn before submit instead of
+  // relying on the createExercise duplicate-name toast after a full round-trip.
+  const [existing, setExisting] = useState<{ id: string; name: string }[]>([])
+
+  useEffect(() => {
+    getExercises().then(({ data }) => {
+      if (data) setExisting(data.map(({ id, name }) => ({ id, name })))
+    })
+  }, [])
+
+  // Matching is case-insensitive to mirror the picker's inline-create guard. Note the DB
+  // constraint is still case-sensitive (see issue #33), so this UI is intentionally the
+  // stricter of the two until that migration lands.
+  const trimmedName = name.trim()
+  const lowerName = trimmedName.toLowerCase()
+  const exactMatch = existing.find((e) => e.name.toLowerCase() === lowerName)
+  const similar =
+    !exactMatch && trimmedName.length >= 2
+      ? existing.filter((e) => e.name.toLowerCase().includes(lowerName)).slice(0, 3)
+      : []
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (exactMatch) return
     setLoading(true)
 
     const result = await createExercise({
@@ -64,8 +85,21 @@ export default function NewExercisePage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            autoCapitalize="words"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
+          {exactMatch ? (
+            <p className="text-xs text-destructive">
+              “{exactMatch.name}” already exists.{" "}
+              <Link href={`/exercises/${exactMatch.id}`} className="underline">
+                View it
+              </Link>
+            </p>
+          ) : similar.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Similar: {similar.map((e) => e.name).join(", ")}
+            </p>
+          ) : null}
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">
@@ -103,7 +137,7 @@ export default function NewExercisePage() {
             strength.
           </p>
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button type="submit" className="w-full" disabled={loading || !!exactMatch}>
           {loading ? "Saving…" : "Save Exercise"}
         </Button>
       </form>
