@@ -82,6 +82,9 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             autoFocus
+            // The typed text becomes the name when creating via "Create …", so capitalise
+            // words to keep inline-created exercises consistent with the seeded library.
+            autoCapitalize="words"
             className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
