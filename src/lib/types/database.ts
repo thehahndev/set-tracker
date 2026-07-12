@@ -239,7 +239,29 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_exercise_progress: {
+        Args: { p_exercise_id: string }
+        Returns: {
+          est_1rm: number
+          finished_at: string
+          is_1rm_pr: boolean
+          is_volume_pr: boolean
+          is_weight_pr: boolean
+          session_id: string
+          top_weight: number
+          total_volume: number
+        }[]
+      }
+      get_session_prs: {
+        Args: { p_session_id: string }
+        Returns: {
+          est_1rm_pr: number
+          exercise_id: string
+          exercise_name: string
+          volume_pr: number
+          weight_pr: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
