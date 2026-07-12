@@ -539,26 +539,40 @@ export async function getExerciseHistory(
   } = await supabase.auth.getUser()
   if (!user) return { data: null }
 
-  // !inner join with the finished_at filter excludes the active session (finished_at IS NULL).
-  // Returns up to 3 most recent finished sessions, newest first.
+  // Root the query at workout_sessions so the finished_at ordering applies to the top-level
+  // rows. Ordering by a column on an embedded to-one resource (the previous approach, rooted at
+  // session_exercises) is a no-op in PostgREST, which silently returned an arbitrary/oldest-first
+  // set of sessions. The !inner embed + exercise_id filter keeps only sessions containing this
+  // exercise. Returns up to 3 most recent finished sessions, newest first.
   const { data } = await supabase
-    .from("session_exercises")
+    .from("workout_sessions")
     .select(
-      `set_entries (set_number, weight_kg, reps),
-       workout_sessions!inner (finished_at)`
+      `finished_at,
+       session_exercises!inner (
+         exercise_id,
+         set_entries (set_number, weight_kg, reps)
+       )`
     )
-    .eq("exercise_id", exerciseId)
-    .not("workout_sessions.finished_at", "is", null)
-    .order("finished_at", { referencedTable: "workout_sessions", ascending: false })
+    .eq("user_id", user.id)
+    .eq("session_exercises.exercise_id", exerciseId)
+    .not("finished_at", "is", null)
+    .order("finished_at", { ascending: false })
     .limit(3)
 
   if (!data || data.length === 0) return { data: null }
 
-  type RawRow = { set_entries: HistorySet[]; workout_sessions: { finished_at: string } }
+  type RawRow = {
+    finished_at: string
+    session_exercises: Array<{ exercise_id: string; set_entries: HistorySet[] }>
+  }
   const sessions: HistorySession[] = (data as unknown as RawRow[])
     .map((row) => ({
-      finished_at: row.workout_sessions.finished_at,
-      sets: [...row.set_entries].sort((a, b) => a.set_number - b.set_number),
+      finished_at: row.finished_at,
+      // An exercise can in principle appear more than once in a session, so flatten across all
+      // matching session_exercises before sorting by set_number.
+      sets: row.session_exercises
+        .flatMap((se) => se.set_entries)
+        .sort((a, b) => a.set_number - b.set_number),
     }))
     .filter((s) => s.sets.length > 0)
 
