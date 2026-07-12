@@ -8,6 +8,12 @@ relayed/remote browser can reach it with no tunnel to run.
 a preview rebuild (roughly 1–2 minutes), so use the dev server for fast iteration and
 previews for "does this PR actually work, tested from wherever I am."
 
+> **Verified end-to-end (2026-07).** A remote-control session drove a full test this
+> way: it cleared the Vercel gate, signed into the app with a magic link, seeded richer
+> data, and exercised a feature on the preview. The concrete steps and gotchas that made
+> it work — especially the login sequence and the relayed-browser quirks — are folded
+> into the sections below.
+
 ## Why this is needed
 
 When Claude Code runs in remote-control mode (e.g. steered from mobile), the browser
@@ -71,13 +77,71 @@ directly and does **not** use a redirect URL — so it needs no allow-list entry
    `https://<preview-host>/?x-vercel-protection-bypass=<secret>&x-vercel-set-bypass-cookie=true`
    The secret bypasses protection; the companion parameter sets a cookie so the rest of
    the browsing session is bypassed too.
-3. Sign into the app on that origin:
-   - **Today (magic-link only):** complete one magic-link login in that browser. Because
-     the branch-alias origin is stable, the Supabase session persists in the relayed
-     browser's profile for later sessions.
-   - **Once code-based login lands** (see issue #25): request sign-in, then read the
-     6-digit code from your email to Claude, who types it — no email-link click needed.
+   - **The bypass cookie can persist across sessions.** In the 2026-07 run the preview
+     loaded straight to the app with no Vercel wall, because the relayed browser still
+     carried the cookie from earlier. So try navigating to the preview first; only run
+     the bypass URL if you actually hit the "log in to Vercel" wall.
+3. Sign into the app using the magic-link paste method in
+   [Signing in with a magic link](#signing-in-with-a-magic-link-the-method-that-works)
+   below. (Once code-based login lands — issue #25 — this becomes a 6-digit code you read
+   to Claude instead, with no link handling.)
 4. Hand Claude the preview URL and let it drive the test.
+
+## Signing in with a magic link (the method that works)
+
+The app only supports magic-link login, and a magic link must be opened in the **same
+browser that requested it** — which is the relayed browser Claude drives, not the
+browser on your phone or laptop where your inbox is. That constraint is what makes this
+fiddly, and it is why the sequence below is specific:
+
+1. Claude opens the preview's `/login`, types your email, and clicks **Send sign-in
+   link**. This step is load-bearing: sending the link from the relayed browser is what
+   stores the PKCE `code_verifier` cookie in that browser. The page then shows "Check
+   your email — a sign-in link is on its way."
+2. Open that email yourself and **copy the full sign-in link — do not click it.**
+   Clicking it in your own browser consumes the one-time token (and pairs it with the
+   wrong verifier), which breaks the flow. The link is a Supabase verify URL shaped like:
+   ```
+   https://<project>.supabase.co/auth/v1/verify?token=pkce_…&type=magiclink&redirect_to=https://<preview-host>/auth/callback
+   ```
+3. Paste that URL to Claude. Claude navigates the relayed browser to it; Supabase
+   verifies the token and redirects through `/auth/callback`, establishing the session.
+4. The callback may briefly show `/login` again — that is a transient render, **not** a
+   failure. Confirm by navigating to `/dashboard`; if the app loads, you are signed in.
+
+Because the branch-alias origin is stable, the session cookie then persists in the
+relayed browser for the rest of the test and often into later sessions.
+
+## Browser automation quirks (relayed browser)
+
+The relayed browser is less predictable than local Chrome. What the 2026-07 run hit,
+and the workarounds:
+
+- **The first interaction after a navigation is sometimes dropped** — a click into a
+  search box, or on a list row, silently no-ops. Simply repeat it; the second attempt
+  registers. (Typing into a search field showed this repeatedly.)
+- **Screenshots occasionally time out** with "renderer may be frozen or unresponsive."
+  Retry the screenshot; it recovers without a reload.
+- **Prefer navigating by URL over tapping the bottom nav.** A direct `navigate` to
+  `/exercises`, `/dashboard`, etc. is more reliable than clicking the nav bar, which
+  intermittently does nothing.
+- **The Vercel Toolbar can pop open** if a click lands near its launcher in the
+  bottom-right corner. It is harmless — click away to dismiss — but it can cover page
+  content and throw off the next click's coordinates.
+
+## Getting richer data to test against
+
+A fresh dev database has too little history to exercise most screens. To populate a
+realistic set of workouts (progression, PRs, and one exercise with mixed weighted and
+bodyweight sets), run the dev-only seed:
+
+```
+npx supabase db query --db-url "$SUPABASE_DB_URL" --file supabase/seeds/dev-workouts.sql
+```
+
+It is idempotent (re-running replaces its own rows, never touches real data) and targets
+whatever `SUPABASE_DB_URL` points at, which is the dev project. See the file's header for
+details. Previews read the dev database, so seeded data shows up on the preview too.
 
 ## Caveats
 
@@ -89,10 +153,11 @@ directly and does **not** use a redirect URL — so it needs no allow-list entry
   Simpler, but it makes previews publicly viewable (still behind Supabase login). The
   bypass secret is the tidier option.
 
-## The real limiter
+## The remaining friction
 
-The preview approach cleanly solves **reachability** and the **Vercel gate**. The
-remaining friction is **authenticating the app inside the relayed browser** — a
-magic-link-only flow needs a link click in that specific browser. Adding code-based
-login (issue #25) removes that, and then preview, LAN-IP, and tunnel testing all become
-smooth.
+The preview approach cleanly solves **reachability** and the **Vercel gate**, and the
+magic-link paste method above makes **app login** work reliably. The one rough edge left
+is that login is not hands-off: you have to copy the sign-in URL from your email and
+paste it to Claude for each fresh session. Adding code-based login (issue #25) would
+remove even that — request sign-in, read the 6-digit code to Claude — and then preview,
+LAN-IP, and tunnel testing all become smooth.
