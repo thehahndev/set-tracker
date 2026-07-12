@@ -10,17 +10,29 @@ import { createExercise } from "@/lib/actions/exercises"
 
 const CATEGORIES = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "calves", "core"]
 
+const LOAD_TYPES = [
+  { value: "external", label: "Standard weight" },
+  { value: "assisted", label: "Assisted (counterweight machine)" },
+] as const
+
+type LoadTypeValue = (typeof LOAD_TYPES)[number]["value"]
+
 export default function NewExercisePage() {
   const router = useRouter()
   const [name, setName] = useState("")
   const [category, setCategory] = useState("")
+  const [loadType, setLoadType] = useState<LoadTypeValue>("external")
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
-    const result = await createExercise({ name: name.trim(), category: category || null })
+    const result = await createExercise({
+      name: name.trim(),
+      category: category || null,
+      load_type: loadType,
+    })
 
     if (result.error) {
       toast.error(result.error)
@@ -72,6 +84,24 @@ export default function NewExercisePage() {
               </option>
             ))}
           </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Weight type</label>
+          <select
+            value={loadType}
+            onChange={(e) => setLoadType(e.target.value as LoadTypeValue)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {LOAD_TYPES.map((lt) => (
+              <option key={lt.value} value={lt.value}>
+                {lt.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Choose Assisted for counterweight machines, where less weight means more
+            strength.
+          </p>
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Saving…" : "Save Exercise"}

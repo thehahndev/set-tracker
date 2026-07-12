@@ -10,14 +10,28 @@ import { updateExercise } from "@/lib/actions/exercises"
 
 const CATEGORIES = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "calves", "core"]
 
+const LOAD_TYPES = [
+  { value: "external", label: "Standard weight" },
+  { value: "assisted", label: "Assisted (counterweight machine)" },
+] as const
+
+type LoadTypeValue = (typeof LOAD_TYPES)[number]["value"]
+
 type Props = {
-  exercise: { id: string; name: string; category: string | null }
+  exercise: { id: string; name: string; category: string | null; load_type: string | null }
+}
+
+// The DB enum also allows 'bodyweight' (reserved for a future tier). If a row somehow
+// carries it, fall back to 'external' in this form rather than showing a blank select.
+function toFormLoadType(value: string | null): LoadTypeValue {
+  return value === "assisted" ? "assisted" : "external"
 }
 
 export function EditExerciseForm({ exercise }: Props) {
   const router = useRouter()
   const [name, setName] = useState(exercise.name)
   const [category, setCategory] = useState(exercise.category ?? "")
+  const [loadType, setLoadType] = useState<LoadTypeValue>(toFormLoadType(exercise.load_type))
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -28,6 +42,7 @@ export function EditExerciseForm({ exercise }: Props) {
       id: exercise.id,
       name: name.trim(),
       category: category || null,
+      load_type: loadType,
     })
 
     if (result.error) {
@@ -79,6 +94,24 @@ export function EditExerciseForm({ exercise }: Props) {
               </option>
             ))}
           </select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">Weight type</label>
+          <select
+            value={loadType}
+            onChange={(e) => setLoadType(e.target.value as LoadTypeValue)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {LOAD_TYPES.map((lt) => (
+              <option key={lt.value} value={lt.value}>
+                {lt.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Choose Assisted for counterweight machines, where less weight means more
+            strength.
+          </p>
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Saving…" : "Save Changes"}

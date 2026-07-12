@@ -7,6 +7,10 @@ import { z } from "zod"
 const exerciseFieldsSchema = z.object({
   name: z.string().min(1).max(100),
   category: z.string().max(50).nullable().optional(),
+  // How the logged weight relates to strength. 'assisted' inverts progress reporting
+  // (less weight = stronger); 'bodyweight' is reserved for a future tier. Defaults to
+  // 'external' when omitted so existing callers are unaffected.
+  load_type: z.enum(["external", "assisted", "bodyweight"]).optional(),
 })
 
 const createExerciseSchema = exerciseFieldsSchema
@@ -31,9 +35,10 @@ export async function createExercise(input: z.infer<typeof createExerciseSchema>
     .insert({
       name: parsed.data.name,
       category: parsed.data.category ?? null,
+      load_type: parsed.data.load_type ?? "external",
       created_by: user.id,
     })
-    .select("id, name, category, created_by")
+    .select("id, name, category, load_type, created_by")
     .single()
 
   if (error) {
@@ -48,7 +53,7 @@ export async function getExercise(id: string) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("exercises")
-    .select("id, name, category, created_by")
+    .select("id, name, category, load_type, created_by")
     .eq("id", id)
     .single()
   if (error) return { error: error.message }
@@ -65,9 +70,17 @@ export async function updateExercise(input: z.infer<typeof updateExerciseSchema>
   const parsed = updateExerciseSchema.safeParse(input)
   if (!parsed.success) return { error: parsed.error.message }
 
+  // Only overwrite load_type when the caller supplied it, so a partial update never
+  // silently resets an exercise back to 'external'.
+  const update: { name: string; category: string | null; load_type?: string } = {
+    name: parsed.data.name,
+    category: parsed.data.category ?? null,
+  }
+  if (parsed.data.load_type) update.load_type = parsed.data.load_type
+
   const { error } = await supabase
     .from("exercises")
-    .update({ name: parsed.data.name, category: parsed.data.category ?? null })
+    .update(update)
     .eq("id", parsed.data.id)
 
   if (error) {

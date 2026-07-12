@@ -70,3 +70,11 @@ INSERT INTO exercises (name, category) VALUES
   ('Hanging Leg Raise', 'core'),
   ('Ab Wheel Rollout', 'core')
 ON CONFLICT (name) DO NOTHING;
+
+-- Assisted (counterweight) machine variants — the logged weight is assistance, so
+-- less weight means more strength. Progress reporting inverts direction for these.
+INSERT INTO exercises (name, category, load_type) VALUES
+  ('Assisted Pull-Up', 'back', 'assisted'),
+  ('Assisted Chin-Up', 'back', 'assisted'),
+  ('Assisted Dip', 'chest', 'assisted')
+ON CONFLICT (name) DO NOTHING;

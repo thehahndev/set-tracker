@@ -17,7 +17,16 @@ function label(n: number) {
   return (Math.round(n * 10) / 10).toString()
 }
 
-export function ProgressChart({ points }: { points: ChartPoint[] }) {
+// `invert` flips the Y-axis so a *falling* value renders as an upward line. Used for
+// assisted exercises, where less assistance is progress, so declining assistance should
+// read as improvement.
+export function ProgressChart({
+  points,
+  invert = false,
+}: {
+  points: ChartPoint[]
+  invert?: boolean
+}) {
   if (points.length === 0) return null
 
   const values = points.map((p) => p.value)
@@ -27,7 +36,10 @@ export function ProgressChart({ points }: { points: ChartPoint[] }) {
 
   const x = (i: number) =>
     points.length === 1 ? PAD.left + INNER_W / 2 : PAD.left + (i / (points.length - 1)) * INNER_W
-  const y = (v: number) => PAD.top + INNER_H - ((v - min) / range) * INNER_H
+  const y = (v: number) =>
+    invert
+      ? PAD.top + ((v - min) / range) * INNER_H
+      : PAD.top + INNER_H - ((v - min) / range) * INNER_H
 
   const baseline = PAD.top + INNER_H
   const polyline = points.map((p, i) => `${x(i)},${y(p.value)}`).join(" ")
@@ -42,10 +54,10 @@ export function ProgressChart({ points }: { points: ChartPoint[] }) {
       {/* y-axis min/max guides */}
       <line x1={PAD.left} y1={baseline} x2={W - PAD.right} y2={baseline} className="stroke-border" strokeWidth={1} />
       <text x={PAD.left - 6} y={PAD.top + 4} textAnchor="end" className="fill-muted-foreground text-[9px]">
-        {label(max)}
+        {label(invert ? min : max)}
       </text>
       <text x={PAD.left - 6} y={baseline} textAnchor="end" className="fill-muted-foreground text-[9px]">
-        {label(min)}
+        {label(invert ? max : min)}
       </text>
 
       {points.length > 1 && (
