@@ -73,6 +73,11 @@ ON CONFLICT (name) DO NOTHING;
 
 -- Assisted (counterweight) machine variants — the logged weight is assistance, so
 -- less weight means more strength. Progress reporting inverts direction for these.
+--
+-- Dev-only: this file runs on local `supabase db reset` (see config.toml [db.seed]),
+-- never in CI/prod, which pushes migrations only. So these rows do NOT reach existing
+-- users. In prod, assisted exercises are user-driven — anyone can flag their own
+-- machine via the load-type selector on the create/edit exercise forms.
 INSERT INTO exercises (name, category, load_type) VALUES
   ('Assisted Pull-Up', 'back', 'assisted'),
   ('Assisted Chin-Up', 'back', 'assisted'),
