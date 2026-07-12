@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ChevronLeft, Pencil, Trophy } from "lucide-react"
+import { ChevronDown, ChevronLeft, ChevronUp, Pencil, Trophy } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ProgressChart } from "./ProgressChart"
 import { CustomBadge } from "@/components/CustomBadge"
@@ -25,6 +25,10 @@ function shortDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
+function setLabel(set: { weight_kg: number | null; reps: number }) {
+  return set.weight_kg != null ? `${set.weight_kg}kg` : "BW"
+}
+
 type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
 
 export function ExerciseDetail({
@@ -38,7 +42,16 @@ export function ExerciseDetail({
 }) {
   const router = useRouter()
   const [metric, setMetric] = useState<Metric>("est_1rm")
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const { exerciseName, points, prs } = progress
+
+  const toggleSession = (sessionId: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) next.delete(sessionId)
+      else next.add(sessionId)
+      return next
+    })
 
   const valueOf = (p: ProgressPoint) =>
     metric === "weight" ? p.top_weight : metric === "est_1rm" ? p.est_1rm : p.total_volume
@@ -131,18 +144,50 @@ export function ExerciseDetail({
               Sessions
             </h2>
             <div className="divide-y rounded-md border text-sm">
-              {[...points].reverse().map((p) => (
-                <div key={p.session_id} className="flex items-center justify-between px-3 py-2.5">
-                  <span className="text-muted-foreground">{shortDate(p.finished_at)}</span>
-                  <span className="flex items-center gap-1.5 tabular-nums">
-                    {isPrFor(p) && (
-                      <Trophy className="h-3.5 w-3.5 text-amber-500" aria-label="Personal record" />
+              {[...points].reverse().map((p) => {
+                const isOpen = expanded.has(p.session_id)
+                return (
+                  <div key={p.session_id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleSession(p.session_id)}
+                      aria-expanded={isOpen}
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left"
+                    >
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        {isOpen ? (
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        )}
+                        {shortDate(p.finished_at)}
+                      </span>
+                      <span className="flex items-center gap-1.5 tabular-nums">
+                        {isPrFor(p) && (
+                          <Trophy
+                            className="h-3.5 w-3.5 text-amber-500"
+                            aria-label="Personal record"
+                          />
+                        )}
+                        {fmt(valueOf(p))}
+                        {unitSuffix}
+                      </span>
+                    </button>
+                    {isOpen && p.sets.length > 0 && (
+                      <div className="flex flex-wrap gap-x-2 gap-y-1 px-3 pb-3">
+                        {p.sets.map((set) => (
+                          <span
+                            key={set.set_number}
+                            className="rounded bg-muted px-1.5 py-0.5 text-xs tabular-nums text-muted-foreground"
+                          >
+                            {setLabel(set)}&nbsp;×&nbsp;{set.reps}
+                          </span>
+                        ))}
+                      </div>
                     )}
-                    {fmt(valueOf(p))}
-                    {unitSuffix}
-                  </span>
-                </div>
-              ))}
+                  </div>
+                )
+              })}
             </div>
           </div>
         </>

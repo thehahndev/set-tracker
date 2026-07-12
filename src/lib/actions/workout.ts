@@ -430,6 +430,8 @@ export type ProgressPoint = {
   is_weight_pr: boolean
   is_1rm_pr: boolean
   is_volume_pr: boolean
+  // Every set logged for this exercise in the session, ordered by set_number.
+  sets: HistorySet[]
 }
 
 export type ExerciseProgress = {
@@ -471,6 +473,25 @@ export async function getExerciseProgress(
   })
   if (error) return { data: null, error: error.message }
 
+  // The RPC returns aggregates only; fetch the raw sets so each session row can
+  // reveal its set-by-set breakdown (same shape as getExerciseHistory, no limit).
+  const { data: setData } = await supabase
+    .from("session_exercises")
+    .select(
+      `session_id,
+       set_entries (set_number, weight_kg, reps),
+       workout_sessions!inner (finished_at)`
+    )
+    .eq("exercise_id", exerciseId)
+    .not("workout_sessions.finished_at", "is", null)
+
+  type RawSetRow = { session_id: string; set_entries: HistorySet[] }
+  const setsBySession = new Map<string, HistorySet[]>()
+  for (const row of (setData as unknown as RawSetRow[] | null) ?? []) {
+    const existing = setsBySession.get(row.session_id) ?? []
+    setsBySession.set(row.session_id, existing.concat(row.set_entries))
+  }
+
   const points: ProgressPoint[] = (data ?? []).map((r) => ({
     session_id: r.session_id,
     finished_at: r.finished_at,
@@ -480,6 +501,9 @@ export async function getExerciseProgress(
     is_weight_pr: r.is_weight_pr,
     is_1rm_pr: r.is_1rm_pr,
     is_volume_pr: r.is_volume_pr,
+    sets: (setsBySession.get(r.session_id) ?? []).sort(
+      (a, b) => a.set_number - b.set_number
+    ),
   }))
 
   const prs = points.length
