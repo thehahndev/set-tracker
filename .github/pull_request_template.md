@@ -36,10 +36,14 @@ why, so the reviewer can agree or overrule. -->
 
 ## Outcome
 
-- **Verified.** <!-- Results, e.g. `npx tsc --noEmit — clean`,
-  `npm run lint — clean`, plus the manual flow exercised. Distinguish
-  "ran it" from "read it and it looks right"; name what was not verified
-  if it matters. -->
+- **Verified** <!-- a scannable list, one line per check; group alike
+  checks (a `npx tsc --noEmit` / `npm run lint` / `npm run build` trio
+  goes on one line). Each line names what ran and its result with the
+  claim-strength visible: "clean" or "passed" (executed) reads
+  differently from "read it and it looks right" (inspected); include the
+  manual flow exercised. Put anything NOT verified on its own line, never
+  buried at the tail of a sentence. -->
+  -
 - **Risk.** <!-- What could break, what is hard to reverse, what you are
   unsure of — schema or RLS changes, data migrations, shared exercise
   library semantics. Note anything that should be recorded in
