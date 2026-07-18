@@ -297,9 +297,26 @@ export async function finishWorkout(
     }
   }
 
+  // Anchor finished_at to the last set logged, not the moment Finish was tapped.
+  // If the user forgets to finish and closes the session hours or days later, the
+  // tap time would inflate the duration and file the workout under the wrong date
+  // (history and duration both derive from finished_at). For a single continuous
+  // session the last set is the true end. This runs after the cleanup delete above,
+  // so sets under exercises the user removed don't count. Zero-set sessions have no
+  // anchor, so they fall back to the tap time (their duration is ~0 either way).
+  const { data: lastSet } = await supabase
+    .from("set_entries")
+    .select("created_at, session_exercises!inner(session_id)")
+    .eq("session_exercises.session_id", sessionId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const finishedAt = lastSet?.created_at ?? new Date().toISOString()
+
   const { error } = await supabase
     .from("workout_sessions")
-    .update({ finished_at: new Date().toISOString() })
+    .update({ finished_at: finishedAt })
     .eq("id", sessionId)
     .eq("user_id", user.id)
 
