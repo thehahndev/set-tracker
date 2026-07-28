@@ -7,8 +7,7 @@ import { ChevronLeft } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { updateExercise } from "@/lib/actions/exercises"
-
-const CATEGORIES = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "calves", "core"]
+import { CATEGORY_ORDER as CATEGORIES } from "@/lib/categories"
 
 const LOAD_TYPES = [
   { value: "external", label: "Standard weight" },

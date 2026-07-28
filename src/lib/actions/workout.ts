@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
+import { compareCategories } from "@/lib/categories"
 
 export type WorkoutSession = {
   id: string
@@ -678,6 +679,47 @@ export async function getRecentWorkouts(): Promise<RecentWorkout[]> {
       .map((se) => se.exercises?.name)
       .filter((n): n is string => !!n),
   }))
+}
+
+export type CategoryRecap = {
+  category: string | null // null = uncategorised; UI renders "Other"
+  session_id: string
+  finished_at: string
+  exercise_names: string[]
+}
+
+// Dashboard muscle-group recap: per category, the most recent finished session
+// that trained it (see the RPC migration for the "at least one logged set" rule).
+// Sorted here so the client component stays presentation-only.
+export async function getLastSessionPerCategory(): Promise<CategoryRecap[]> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return []
+
+  type RawRow = {
+    category: string | null
+    session_id: string
+    finished_at: string
+    exercise_names: string[] | null
+  }
+
+  const { data, error } = await callRpc<RawRow[]>(
+    supabase,
+    "get_last_session_per_category",
+    {}
+  )
+  if (error || !data) return []
+
+  return data
+    .map((r) => ({
+      category: r.category,
+      session_id: r.session_id,
+      finished_at: r.finished_at,
+      exercise_names: r.exercise_names ?? [],
+    }))
+    .sort((a, b) => compareCategories(a.category ?? "other", b.category ?? "other"))
 }
 
 export async function getWorkoutHistory(cursor?: string): Promise<{

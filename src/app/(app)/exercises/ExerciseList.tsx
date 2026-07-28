@@ -4,10 +4,9 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { ChevronRight, Search } from "lucide-react"
 import { CustomBadge } from "@/components/CustomBadge"
+import { compareCategories } from "@/lib/categories"
 
 type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
-
-const CATEGORY_ORDER = ["chest", "back", "shoulders", "biceps", "triceps", "legs", "calves", "core"]
 
 function formatCategory(category: string) {
   return category.charAt(0).toUpperCase() + category.slice(1)
@@ -35,14 +34,7 @@ export function ExerciseList({
       if (!map.has(cat)) map.set(cat, [])
       map.get(cat)!.push(exercise)
     }
-    return [...map.entries()].sort(([a], [b]) => {
-      const ai = CATEGORY_ORDER.indexOf(a)
-      const bi = CATEGORY_ORDER.indexOf(b)
-      if (ai === -1 && bi === -1) return a.localeCompare(b)
-      if (ai === -1) return 1
-      if (bi === -1) return -1
-      return ai - bi
-    })
+    return [...map.entries()].sort(([a], [b]) => compareCategories(a, b))
   }, [filtered])
 
   return (
