@@ -1,13 +1,41 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { X, Search, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { createExercise, getExercises } from "@/lib/actions/exercises"
 import { createClient } from "@/lib/supabase/client"
 import { CustomBadge } from "@/components/CustomBadge"
+import { compareCategories } from "@/lib/categories"
+import { cn } from "@/lib/utils"
 
 type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "flex min-h-[44px] shrink-0 items-center rounded-full border px-3.5 text-sm transition-colors",
+        active
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-input text-muted-foreground hover:bg-muted"
+      )}
+    >
+      {children}
+    </button>
+  )
+}
 
 interface Props {
   onSelect: (exerciseId: string, exerciseName: string, createdBy: string | null) => void
@@ -21,6 +49,9 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  // Muscle-group filter; null means "All". Deliberately not persisted — the picker unmounts
+  // on close, so each open starts unfiltered rather than hiding the library behind a stale chip.
+  const [category, setCategory] = useState<string | null>(null)
   // Viewer's id — the Custom badge is shown only for exercises they created (others' customs
   // read as part of the shared library). Fetched here so both picker call sites stay simple.
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -36,9 +67,28 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
   }, [])
 
   const trimmedSearch = search.trim()
-  const filtered = trimmedSearch
-    ? exercises.filter((e) => e.name.toLowerCase().includes(trimmedSearch.toLowerCase()))
-    : exercises
+
+  // Chips come from the loaded library rather than CATEGORY_ORDER, so custom exercises with
+  // an unknown category still get a chip and empty categories don't. Nulls collapse to
+  // "other", matching how the exercises list groups them.
+  const categories = useMemo(
+    () => [...new Set(exercises.map((e) => e.category ?? "other"))].sort(compareCategories),
+    [exercises]
+  )
+
+  // Muscle group and search term are ANDed: the chip narrows the library, the text box
+  // searches names within it. Search stays name-only so the "Create …" row below the list
+  // keeps treating the typed text as a name.
+  const filtered = useMemo(
+    () =>
+      exercises.filter((e) => {
+        if (category !== null && (e.category ?? "other") !== category) return false
+        if (trimmedSearch && !e.name.toLowerCase().includes(trimmedSearch.toLowerCase()))
+          return false
+        return true
+      }),
+    [exercises, category, trimmedSearch]
+  )
 
   // Offer inline creation only once the library has loaded (so we can dedupe) and the typed
   // name doesn't already exist — exercises.name is globally UNIQUE, so creating a duplicate
@@ -51,7 +101,13 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
   async function handleCreate() {
     if (!trimmedSearch || creating) return
     setCreating(true)
-    const result = await createExercise({ name: trimmedSearch, category: null })
+    // Inherit the active chip, so an exercise created while filtered to "Back" doesn't land
+    // uncategorised and vanish from the list the user is looking at. "other" is the bucket
+    // for null, so it maps back to null rather than becoming a literal category.
+    const result = await createExercise({
+      name: trimmedSearch,
+      category: category === "other" ? null : category,
+    })
     if (result.error || !result.data) {
       toast.error(result.error ?? "Couldn't create exercise")
       setCreating(false)
@@ -88,6 +144,28 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
             className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+        {categories.length > 1 && (
+          <div
+            role="group"
+            aria-label="Filter by muscle group"
+            // Negative margin lets the row scroll edge-to-edge while the chips keep the
+            // container's horizontal padding.
+            className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4"
+          >
+            <FilterChip active={category === null} onClick={() => setCategory(null)}>
+              All
+            </FilterChip>
+            {categories.map((cat) => (
+              <FilterChip
+                key={cat}
+                active={category === cat}
+                onClick={() => setCategory(category === cat ? null : cat)}
+              >
+                <span className="capitalize">{cat}</span>
+              </FilterChip>
+            ))}
+          </div>
+        )}
       </div>
       <div className="flex-1 divide-y overflow-y-auto">
         {loading ? (
@@ -129,9 +207,26 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
               </button>
             )}
             {filtered.length === 0 && !showCreate && (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No exercises found
-              </p>
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {category !== null ? (
+                    <>
+                      No <span className="capitalize">{category}</span> exercises
+                      {trimmedSearch && " match that search"}
+                    </>
+                  ) : (
+                    "No exercises found"
+                  )}
+                </p>
+                {category !== null && (
+                  <button
+                    onClick={() => setCategory(null)}
+                    className="mt-2 min-h-[44px] text-sm font-medium text-primary hover:underline"
+                  >
+                    Show all muscle groups
+                  </button>
+                )}
+              </div>
             )}
           </>
         )}
