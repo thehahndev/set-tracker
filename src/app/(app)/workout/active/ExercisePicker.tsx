@@ -11,6 +11,30 @@ import { cn } from "@/lib/utils"
 
 type Exercise = { id: string; name: string; category: string | null; created_by: string | null }
 
+const CATEGORY_STORAGE_KEY = "exercisePickerCategory"
+
+// sessionStorage rather than localStorage (which the rest-timer default uses): a chip hides
+// most of the library, so it should expire with the browsing session instead of greeting you
+// still set to Back on next week's leg day.
+function readStoredCategory() {
+  if (typeof window === "undefined") return null
+  try {
+    return window.sessionStorage.getItem(CATEGORY_STORAGE_KEY)
+  } catch {
+    /* storage unavailable (private mode) — the filter just won't be remembered */
+    return null
+  }
+}
+
+function writeStoredCategory(category: string | null) {
+  try {
+    if (category === null) window.sessionStorage.removeItem(CATEGORY_STORAGE_KEY)
+    else window.sessionStorage.setItem(CATEGORY_STORAGE_KEY, category)
+  } catch {
+    /* storage unavailable (private mode) — selection won't persist */
+  }
+}
+
 function FilterChip({
   active,
   onClick,
@@ -49,8 +73,8 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
   const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
-  // Muscle-group filter; null means "All". Deliberately not persisted — the picker unmounts
-  // on close, so each open starts unfiltered rather than hiding the library behind a stale chip.
+  // Muscle-group filter; null means "All". Restored from the last pick (see selectCategory)
+  // once the library has loaded, so adding several exercises from one group takes one tap.
   const [category, setCategory] = useState<string | null>(null)
   // Viewer's id — the Custom badge is shown only for exercises they created (others' customs
   // read as part of the shared library). Fetched here so both picker call sites stay simple.
@@ -58,13 +82,28 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
 
   useEffect(() => {
     getExercises().then(({ data }) => {
-      if (data) setExercises(data)
+      if (data) {
+        setExercises(data)
+        // Restore the last chip only if it still matches something in the library — a saved
+        // group whose exercises have since been renamed away would open onto an empty list
+        // with no obvious cause. Done here rather than in useState so there's no SSR/hydration
+        // mismatch, and it lands while the skeleton is still showing, so nothing flashes.
+        const saved = readStoredCategory()
+        if (saved && data.some((e) => (e.category ?? "other") === saved)) setCategory(saved)
+      }
       setLoading(false)
     })
     createClient()
       .auth.getUser()
       .then(({ data }) => setCurrentUserId(data.user?.id ?? null))
   }, [])
+
+  // Every chip change goes through here so the remembered value can't drift from what's
+  // on screen.
+  function selectCategory(next: string | null) {
+    setCategory(next)
+    writeStoredCategory(next)
+  }
 
   const trimmedSearch = search.trim()
 
@@ -152,14 +191,14 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
             // container's horizontal padding.
             className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4"
           >
-            <FilterChip active={category === null} onClick={() => setCategory(null)}>
+            <FilterChip active={category === null} onClick={() => selectCategory(null)}>
               All
             </FilterChip>
             {categories.map((cat) => (
               <FilterChip
                 key={cat}
                 active={category === cat}
-                onClick={() => setCategory(category === cat ? null : cat)}
+                onClick={() => selectCategory(category === cat ? null : cat)}
               >
                 <span className="capitalize">{cat}</span>
               </FilterChip>
@@ -220,7 +259,7 @@ export function ExercisePicker({ onSelect, onClose, allowCreate = false }: Props
                 </p>
                 {category !== null && (
                   <button
-                    onClick={() => setCategory(null)}
+                    onClick={() => selectCategory(null)}
                     className="mt-2 min-h-[44px] text-sm font-medium text-primary hover:underline"
                   >
                     Show all muscle groups
