@@ -7,7 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Set Tracker — project context
 
 ### Tech stack
-- **Next.js 16.2.6** with App Router, React 19, TypeScript 5
+- **Next.js 16.3.6** with App Router, React 19, TypeScript 5
 - **Supabase** — PostgreSQL, Row-Level Security, Supabase Auth (magic link OTP only, no passwords)
 - **Tailwind CSS v4** — config is in `globals.css` via `@theme` directive; there is no `tailwind.config.ts`
 - **shadcn** 4.8.0 with **`@base-ui/react`** as headless primitives (NOT Radix UI — do not use Radix imports)
@@ -134,4 +134,5 @@ every PR).
 - **Editing a Vercel env var does NOT update existing deployments.** `NEXT_PUBLIC_*` values are **inlined into the bundle at build time**, so after changing one you must trigger a **fresh build of that branch** (push a commit / redeploy *that* branch with build cache off). "Redeploy" in the dashboard often rebuilds the wrong commit (e.g. `main`) — confirm it targets the branch you mean.
 - **Vars are scoped per environment (Production / Preview / Development).** A var set only for Production leaves Preview builds with an empty value → the proxy middleware throws `Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL` and **every preview route 500s** (build still succeeds, since the build uses placeholder values). Ensure each Supabase var is attached to **Preview** too, pointing at the **dev** project (`msahweejzdmfblpjzxrt`).
 - **Key placement matters:** `NEXT_PUBLIC_SUPABASE_ANON_KEY` must be the **publishable** key (`sb_publishable_…`); the **secret** key (`sb_secret_…`) belongs only in `SUPABASE_SERVICE_ROLE_KEY` (no `NEXT_PUBLIC_` prefix). A secret key in any `NEXT_PUBLIC_*` var ships to the browser and Supabase throws **`Forbidden use of secret API key in browser`** on the first client call (e.g. login `signInWithOtp`).
+- **A paused Supabase project looks like a network error.** The dev project is on the free tier and is paused after inactivity; its host then stops responding, so login shows **`Failed to fetch`** (not a Supabase error) while pages still load. Check the project status in the Supabase dashboard and restore it — no redeploy needed, since the URL and key are unchanged.
 - **Verify what actually shipped** without a browser: fetch a built JS chunk and grep for the key prefix, e.g. `sb_publishable_` (good) vs `sb_secret_` (wrong) — the inlined value is in the client bundle.
