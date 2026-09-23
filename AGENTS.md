@@ -7,7 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Set Tracker — project context
 
 ### Tech stack
-- **Next.js 16.2.6** with App Router, React 19, TypeScript 5
+- **Next.js 16.3.6** with App Router, React 19, TypeScript 5
 - **Supabase** — PostgreSQL, Row-Level Security, Supabase Auth (magic link OTP only, no passwords)
 - **Tailwind CSS v4** — config is in `globals.css` via `@theme` directive; there is no `tailwind.config.ts`
 - **shadcn** 4.8.0 with **`@base-ui/react`** as headless primitives (NOT Radix UI — do not use Radix imports)
